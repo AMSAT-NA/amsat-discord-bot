@@ -2,6 +2,7 @@ import { ChatInputCommandInteraction, Collection, SlashCommandBuilder } from 'di
 import * as verify     from './verify';
 import * as membership from './membership';
 import * as admin      from './admin';
+import * as tle        from './tle';
 
 export interface Command {
   data: SlashCommandBuilder | Omit<SlashCommandBuilder, 'addSubcommand' | 'addSubcommandGroup'>;
@@ -10,6 +11,6 @@ export interface Command {
 
 export const commands = new Collection<string, Command>();
 
-for (const cmd of [verify, membership, admin]) {
+for (const cmd of [verify, membership, admin, tle]) {
   commands.set(cmd.data.name, cmd as Command);
 }
