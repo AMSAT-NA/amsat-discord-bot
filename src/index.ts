@@ -1,0 +1,70 @@
+import { Client, Events, GatewayIntentBits, Interaction } from 'discord.js';
+import { config } from './config';
+import { commands } from './commands';
+import { startSyncJob } from './sync';
+import { logger } from './utils/logger';
+
+// ─── Discord client ────────────────────────────────────────────────────────────
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers, // Required for guild.members.fetch()
+  ],
+});
+
+// ─── Events ────────────────────────────────────────────────────────────────────
+
+client.once(Events.ClientReady, c => {
+  logger.info(`Bot online as ${c.user.tag} (${c.user.id})`);
+  startSyncJob(client);
+});
+
+client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  const command = commands.get(interaction.commandName);
+  if (!command) {
+    logger.warn(`Received unknown command: /${interaction.commandName}`);
+    return;
+  }
+
+  try {
+    await command.execute(interaction);
+  } catch (err) {
+    logger.error('Unhandled error in command handler', {
+      command: interaction.commandName,
+      user: interaction.user.tag,
+      err,
+    });
+
+    const reply = { content: '❌  Something went wrong. Please try again later.', ephemeral: true };
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp(reply).catch(() => undefined);
+    } else {
+      await interaction.reply(reply).catch(() => undefined);
+    }
+  }
+});
+
+client.on(Events.Error, err => {
+  logger.error('Discord client error', { err });
+});
+
+// ─── Startup ───────────────────────────────────────────────────────────────────
+
+client.login(config.DISCORD_TOKEN).catch(err => {
+  logger.error('Failed to authenticate with Discord', { err });
+  process.exit(1);
+});
+
+// ─── Graceful shutdown ─────────────────────────────────────────────────────────
+
+function shutdown(signal: string): void {
+  logger.info(`Received ${signal}, shutting down gracefully…`);
+  client.destroy();
+  process.exit(0);
+}
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT',  () => shutdown('SIGINT'));

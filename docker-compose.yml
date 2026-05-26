@@ -1,0 +1,23 @@
+services:
+  bot:
+    build:
+      context: .
+      target: production
+    image: amsat-discord-bot:latest
+    container_name: amsat-discord-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      DATABASE_PATH: /data/bot.db
+    volumes:
+      - bot-data:/data
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+volumes:
+  bot-data:
+    driver: local

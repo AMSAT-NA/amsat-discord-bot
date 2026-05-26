@@ -1,0 +1,36 @@
+{
+  "name": "amsat-discord-bot",
+  "version": "1.0.0",
+  "description": "AMSAT Discord bot with WildApricot membership verification",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "deploy-commands": "ts-node-dev --transpile-only src/deploy-commands.ts",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ses": "^3.600.0",
+    "axios": "^1.7.0",
+    "better-sqlite3": "^9.6.0",
+    "discord.js": "^14.15.0",
+    "dotenv": "^16.4.0",
+    "node-cron": "^3.0.3",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^20.14.0",
+    "@types/node-cron": "^3.0.11",
+    "@typescript-eslint/eslint-plugin": "^7.14.0",
+    "@typescript-eslint/parser": "^7.14.0",
+    "eslint": "^9.5.0",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
