@@ -19,7 +19,9 @@ WildApricot uses OAuth2 client credentials flow. The API key is passed as HTTP B
 Authorization: Basic base64("APIKEY:<api_key>")
 ```
 
-The token endpoint returns an `access_token` and `expires_in` (seconds). The bot caches this token in memory in `wildapricot.ts` and refreshes it 60 seconds before expiry. The token is not persisted to the database.
+The token endpoint returns an `access_token`, `expires_in` (seconds), and a `Permissions` array containing the `AccountId`. The bot caches all three in memory in `wildapricot.ts` and refreshes the session 60 seconds before expiry. The session is not persisted to the database.
+
+The `AccountId` is retrieved automatically from the token response — it does not need to be configured separately in `.env`.
 
 ### Contact lookup by email
 

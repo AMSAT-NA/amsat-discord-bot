@@ -25,9 +25,6 @@ const configSchema = z.object({
 
   // ── WildApricot ────────────────────────────────────────────────────────────
   WILDAPRICOT_API_KEY: z.string().min(1, 'WildApricot API key is required'),
-  /** Numeric account ID found in WildApricot Settings → Account */
-  WILDAPRICOT_ACCOUNT_ID: z.string().min(1, 'WildApricot account ID is required'),
-
   // ── Amazon SES ─────────────────────────────────────────────────────────────
   AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS access key ID is required'),
   AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS secret access key is required'),
