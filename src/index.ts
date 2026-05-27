@@ -1,22 +1,37 @@
 import { Client, Events, GatewayIntentBits, Interaction } from 'discord.js';
 import { config } from './config';
 import { commands } from './commands';
+import { registerCommands } from './utils/registerCommands';
 import { startSyncJob } from './sync';
 import { logger } from './utils/logger';
+import { startTime, shortSha } from './state';
 
 // ─── Discord client ────────────────────────────────────────────────────────────
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers, // Required for guild.members.fetch()
+    GatewayIntentBits.GuildMembers,
   ],
 });
 
 // ─── Events ────────────────────────────────────────────────────────────────────
 
-client.once(Events.ClientReady, c => {
-  logger.info(`Bot online as ${c.user.tag} (${c.user.id})`);
+client.once(Events.ClientReady, async c => {
+  logger.info(`Bot online as ${c.user.tag} (${c.user.id})`, {
+    version: shortSha,
+    startedAt: startTime.toISOString(),
+  });
+
+  // Register slash commands on every startup — safe to run repeatedly,
+  // ensures commands are always current without a manual deploy step.
+  try {
+    await registerCommands();
+  } catch (err) {
+    // Non-fatal — bot can still operate with existing registered commands
+    logger.error('Failed to register slash commands on startup', { err });
+  }
+
   startSyncJob(client);
 });
 

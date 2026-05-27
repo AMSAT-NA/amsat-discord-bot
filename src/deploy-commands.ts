@@ -1,39 +1,23 @@
 /**
  * deploy-commands.ts
  *
- * Run this once (or after any command changes) to register slash commands
- * with your Discord guild:
+ * Standalone script to manually register slash commands with Discord.
+ * Useful for local development or one-off registration outside of a
+ * normal bot startup cycle.
  *
+ * In production, commands are registered automatically on every container
+ * startup via registerCommands() called from index.ts.
+ *
+ * Usage:
  *   npm run deploy-commands
- *
- * Commands are registered at the guild level for instant availability.
- * For global deployment (all servers), swap Routes.applicationGuildCommands
- * for Routes.applicationCommands — note global commands can take up to 1 hour
- * to propagate.
  */
 
-import { REST, Routes } from 'discord.js';
-import { config } from './config';
-import { commands } from './commands';
+import { registerCommands } from './utils/registerCommands';
 import { logger } from './utils/logger';
 
-const rest = new REST({ version: '10' }).setToken(config.DISCORD_TOKEN);
-
-(async () => {
-  const commandData = [...commands.values()].map(cmd => cmd.data.toJSON());
-
-  logger.info(`Deploying ${commandData.length} commands to guild ${config.DISCORD_GUILD_ID}…`);
-
-  await rest.put(
-    Routes.applicationGuildCommands(config.DISCORD_CLIENT_ID, config.DISCORD_GUILD_ID),
-    { body: commandData },
-  );
-
-  logger.info('✅  Slash commands deployed successfully.');
-  for (const cmd of commandData) {
-    logger.info(`  /${cmd.name} — ${cmd.description}`);
-  }
-})().catch(err => {
-  logger.error('Failed to deploy slash commands', { err });
-  process.exit(1);
-});
+registerCommands()
+  .then(() => logger.info('Done.'))
+  .catch(err => {
+    logger.error('Failed to register slash commands', { err });
+    process.exit(1);
+  });

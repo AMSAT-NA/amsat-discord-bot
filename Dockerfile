@@ -1,6 +1,10 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:22-alpine AS builder
 
+# Commit SHA passed in by GitHub Actions (--build-arg COMMIT_SHA=${{ github.sha }})
+# Falls back to 'development' for local builds without the arg set.
+ARG COMMIT_SHA=development
+
 WORKDIR /app
 
 # Build tools required by better-sqlite3 (native module compiled via node-gyp).
@@ -22,6 +26,10 @@ RUN npm prune --omit=dev
 
 # ── Stage 2: Production image ─────────────────────────────────────────────────
 FROM node:22-alpine AS production
+
+# Re-declare ARG and promote to ENV so it is readable at runtime as process.env.COMMIT_SHA
+ARG COMMIT_SHA=development
+ENV COMMIT_SHA=${COMMIT_SHA}
 
 WORKDIR /app
 

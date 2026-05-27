@@ -10,6 +10,7 @@ import { statements, VerifiedMember } from '../db';
 import { lookupContactById, lookupContactsByCallsign, WildApricotContact } from '../services/wildapricot';
 import { applyMembershipRole } from '../utils/roles';
 import { logger } from '../utils/logger';
+import { formatUptime, shortSha, startTime } from '../state';
 
 export const data = new SlashCommandBuilder()
   .setName('admin')
@@ -41,6 +42,16 @@ export const data = new SlashCommandBuilder()
           .setDescription('The Discord user to unlink')
           .setRequired(true),
       ),
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName('uptime')
+      .setDescription('Show how long the bot has been running'),
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName('version')
+      .setDescription('Show the deployed version (git commit SHA)'),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -52,9 +63,11 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   }
 
   const sub = interaction.options.getSubcommand();
-  if (sub === 'lookup') await handleLookup(interaction);
-  if (sub === 'resync') await handleResync(interaction);
-  if (sub === 'unlink') await handleUnlink(interaction);
+  if (sub === 'lookup')  await handleLookup(interaction);
+  if (sub === 'resync')  await handleResync(interaction);
+  if (sub === 'unlink')  await handleUnlink(interaction);
+  if (sub === 'uptime')  await handleUptime(interaction);
+  if (sub === 'version') await handleVersion(interaction);
 }
 
 // ─── /admin lookup ─────────────────────────────────────────────────────────────
@@ -79,9 +92,6 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
       return;
     }
 
-    // Surface up to 5 matches. WildApricot simpleQuery is a broad text search,
-    // so occasionally more than one record matches (e.g. a callsign that also
-    // appears in an address field). Show them all so admins can investigate.
     const shown = contacts.slice(0, 5);
     const embed = new EmbedBuilder()
       .setColor(Colors.Blue)
@@ -116,7 +126,6 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
   }
 }
 
-/** Formats a single WildApricot contact as a Discord embed field. */
 function contactField(contact: WildApricotContact): { name: string; value: string; inline: boolean } {
   const level  = contact.MembershipLevel?.Name ?? '—';
   const status = contact.Status ?? '—';
@@ -152,7 +161,6 @@ async function handleResync(interaction: ChatInputCommandInteraction): Promise<v
 
   for (const record of all) {
     try {
-      // Member may have left the server
       let guildMember;
       try {
         guildMember = await guild.members.fetch(record.discord_id);
@@ -197,11 +205,11 @@ async function handleResync(interaction: ChatInputCommandInteraction): Promise<v
         .setColor(errors > 0 ? Colors.Yellow : Colors.Green)
         .setTitle('🔄  Resync Complete')
         .addFields(
-          { name: 'Total Records',    value: String(all.length),    inline: true },
-          { name: 'Synced',           value: String(synced),        inline: true },
-          { name: 'Role Changes',     value: String(roleChanges),   inline: true },
-          { name: 'Not in Server',    value: String(notInServer),   inline: true },
-          { name: 'Errors',           value: String(errors),        inline: true },
+          { name: 'Total Records',  value: String(all.length),  inline: true },
+          { name: 'Synced',         value: String(synced),      inline: true },
+          { name: 'Role Changes',   value: String(roleChanges), inline: true },
+          { name: 'Not in Server',  value: String(notInServer), inline: true },
+          { name: 'Errors',         value: String(errors),      inline: true },
         )
         .setTimestamp(),
     ],
@@ -234,4 +242,44 @@ async function handleUnlink(interaction: ChatInputCommandInteraction): Promise<v
     `✅  Unlinked <@${target.id}> (was **${record.email}** — ${record.membership_level}). ` +
     'Their managed roles have **not** been removed automatically; do that manually if needed.',
   );
+}
+
+// ─── /admin uptime ─────────────────────────────────────────────────────────────
+
+async function handleUptime(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(Colors.Green)
+        .setTitle('🟢  Bot Uptime')
+        .addFields(
+          { name: 'Uptime',    value: formatUptime(),             inline: true },
+          { name: 'Started (UTC)', value: startTime.toISOString().slice(0, 19) + ' UTC', inline: false },
+        ),
+    ],
+    ephemeral: true,
+  });
+}
+
+// ─── /admin version ────────────────────────────────────────────────────────────
+
+async function handleVersion(interaction: ChatInputCommandInteraction): Promise<void> {
+  const memberCount = (statements.getAllVerifiedMembers.all() as VerifiedMember[]).length;
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(Colors.Blue)
+        .setTitle('🛰️  AMSAT Discord Bot')
+        .addFields(
+          { name: 'Version (commit)',   value: `\`${shortSha}\``,      inline: true },
+          { name: 'Uptime',             value: formatUptime(),          inline: true },
+          { name: 'Verified Members',   value: String(memberCount),     inline: true },
+          { name: 'Node.js',            value: process.version,         inline: true },
+          { name: 'Environment',        value: process.env.NODE_ENV ?? 'unknown', inline: true },
+        )
+        .setTimestamp(),
+    ],
+    ephemeral: true,
+  });
 }
