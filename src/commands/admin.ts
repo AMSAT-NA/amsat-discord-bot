@@ -11,6 +11,8 @@ import { lookupContactById, lookupContactsByCallsign, WildApricotContact } from 
 import { applyMembershipRole } from '../utils/roles';
 import { logger } from '../utils/logger';
 import { formatUptime, shortSha, startTime } from '../state';
+import os from 'os';
+import fs from 'fs';
 
 export const data = new SlashCommandBuilder()
   .setName('admin')
@@ -247,14 +249,33 @@ async function handleUnlink(interaction: ChatInputCommandInteraction): Promise<v
 // ─── /admin uptime ─────────────────────────────────────────────────────────────
 
 async function handleUptime(interaction: ChatInputCommandInteraction): Promise<void> {
+  // ── Database file info ──────────────────────────────────────────────────────
+  let dbInfo = config.DATABASE_PATH;
+  try {
+    const stat = fs.statSync(config.DATABASE_PATH);
+    const kb   = (stat.size / 1024).toFixed(1);
+    dbInfo = `${config.DATABASE_PATH} (${kb} KB)`;
+  } catch {
+    dbInfo = `${config.DATABASE_PATH} (not found — volume may not be mounted)`;
+  }
+
+  // ── Azure container info (injected at deploy time, optional) ────────────────
+  const hostname       = os.hostname();
+  const containerGroup = config.AZURE_CONTAINER_GROUP ?? hostname;
+  const region         = config.AZURE_REGION          ?? 'unknown';
+
   await interaction.reply({
     embeds: [
       new EmbedBuilder()
         .setColor(Colors.Green)
         .setTitle('🟢  Bot Uptime')
         .addFields(
-          { name: 'Uptime',    value: formatUptime(),             inline: true },
-          { name: 'Started (UTC)', value: startTime.toISOString().slice(0, 19) + ' UTC', inline: false },
+          { name: 'Uptime',           value: formatUptime(),                                    inline: true  },
+          { name: 'Started (UTC)',     value: startTime.toISOString().slice(0, 19) + ' UTC',   inline: true  },
+          { name: 'Container',         value: containerGroup,                                    inline: true  },
+          { name: 'Hostname',          value: hostname,                                          inline: true  },
+          { name: 'Region',            value: region,                                            inline: true  },
+          { name: 'Database',          value: dbInfo,                                            inline: false },
         ),
     ],
     ephemeral: true,

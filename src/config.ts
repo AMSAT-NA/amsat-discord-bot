@@ -49,6 +49,12 @@ const configSchema = z.object({
   /** node-cron expression. Default: 2:00 AM every day */
   SYNC_CRON: z.string().default('0 2 * * *'),
 
+  // ── Azure (optional — injected by CD pipeline, used for /admin uptime) ────
+  /** Azure region the container is running in, e.g. eastus */
+  AZURE_REGION: z.string().optional(),
+  /** Azure Container Group name — injected at deploy time */
+  AZURE_CONTAINER_GROUP: z.string().optional(),
+
   // ── Logging ────────────────────────────────────────────────────────────────
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
