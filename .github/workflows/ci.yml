@@ -78,6 +78,9 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Log in to ACR
         run: az acr login --name ${{ vars.AZURE_ACR_NAME }}
 
