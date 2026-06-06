@@ -41,10 +41,10 @@ Docker stores the credential in `~/.docker/config.json`; future `docker compose 
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md#cicd-secrets-and-variables) for the full list. The minimum required before CD will work:
 
-**Org secret** (Settings → Secrets → Actions, at the organization level):
+**Repo secret** (repo → Settings → Secrets and variables → Actions → **Secrets**):
 - `HOST_DEPLOY_KEY` — ED25519 private key whose public half is in `~/.ssh/authorized_keys` on the server
 
-**Repo variables** (repo → Settings → Secrets and variables → Actions → Variables):
+**Repo variables** (repo → Settings → Secrets and variables → Actions → **Variables**):
 - `HOST_ADDRESS` = the server's hostname or IP
 - `HOST_USER` = the SSH user on the server
 - All application variables (`DISCORD_CLIENT_ID`, `ROLE_MAP`, etc.)

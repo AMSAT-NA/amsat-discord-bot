@@ -43,14 +43,6 @@ If you need to query or display additional WildApricot contact fields, add them 
 
 The GitHub Actions pipeline requires the following configuration. Secrets are redacted in logs; variables are visible.
 
-### Organisation Secret
-
-Configured at the GitHub organisation level (not per-repo):
-
-| Name | Purpose |
-|---|---|
-| `HOST_DEPLOY_KEY` | ED25519 private key for SSH access to `HOST_ADDRESS` |
-
 ### Repository Variables
 
 Repo → Settings → Secrets and variables → Actions → **Variables**:
@@ -80,6 +72,7 @@ Repo → Settings → Secrets and variables → Actions → **Secrets**:
 
 | Name | Purpose |
 |---|---|
+| `HOST_DEPLOY_KEY` | ED25519 private key for SSH access to `HOST_ADDRESS` |
 | `DISCORD_TOKEN` | Discord bot token |
 | `WILDAPRICOT_API_KEY` | WildApricot API key |
 | `AWS_ACCESS_KEY_ID` | IAM key with `ses:SendEmail` permission |
