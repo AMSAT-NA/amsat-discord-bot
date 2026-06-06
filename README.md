@@ -129,10 +129,8 @@ Go to **Server Settings → Roles** and drag the bot's role (named after your ap
 1. Log in to WildApricot as an administrator.
 2. Go to **Settings → Authorized applications**.
 3. Click **Developer access** and generate an API key → `WILDAPRICOT_API_KEY`
-4. Find your **Account ID**:
-   - Go to **Settings → Account**
-   - The account ID is the number in the page URL, e.g. `wildapricot.com/admin/account/**123456**`
-   - → `WILDAPRICOT_ACCOUNT_ID`
+
+> The account ID is derived automatically from the OAuth token — no separate config value is needed.
 
 ---
 
@@ -208,7 +206,6 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `DISCORD_GUILD_ID` | ✅ | — | Your Discord server (guild) ID |
 | `DISCORD_ADMIN_ROLE_ID` | ✅ | — | Role ID that grants access to `/admin` commands |
 | `WILDAPRICOT_API_KEY` | ✅ | — | WildApricot API key |
-| `WILDAPRICOT_ACCOUNT_ID` | ✅ | — | WildApricot numeric account ID |
 | `AWS_ACCESS_KEY_ID` | ✅ | — | AWS IAM access key ID |
 | `AWS_SECRET_ACCESS_KEY` | ✅ | — | AWS IAM secret access key |
 | `AWS_REGION` | — | `us-east-1` | AWS region for SES |
@@ -274,26 +271,17 @@ docker compose run --rm bot node dist/deploy-commands.js
 
 ## GitHub Actions / CI
 
-The included `.github/workflows/ci.yml` runs on every push to `main` and on pull requests. It:
+The included `.github/workflows/ci.yml` runs on every push and pull request. It has five jobs:
 
-1. Runs TypeScript typechecking (`npm run typecheck`)
-2. Compiles the project (`npm run build`)
-3. Builds the Docker image to catch any container issues
+| Job | Trigger | What it does |
+|---|---|---|
+| **Typecheck & Build** | all branches / PRs | `tsc --noEmit` + `tsc` |
+| **Docker Build** | all branches / PRs | Builds the Docker image (no push) to validate the Dockerfile |
+| **Push to ACR** | `main` push only | Builds and pushes the image to `amsatorg.azurecr.io` with a SHA tag and `:latest` |
+| **Configure Server Environment** | `main` push only | Generates `.env` from GitHub secrets/variables; ships it and `deploy/docker-compose.yml` to the server via `scp` |
+| **Deploy** | `main` push only | SSHes to the server and runs `docker compose pull && docker compose up -d --force-recreate` |
 
-### Using GitHub Secrets for deployment
-
-If you're deploying from GitHub Actions or just want to keep secrets out of any `.env` file on your server, add all required variables as **Repository Secrets** in your GitHub repo:
-
-**Settings → Secrets and variables → Actions → New repository secret**
-
-Add each variable from the [Configuration Reference](#configuration-reference) table. Then on your server you can pass them directly to Docker Compose via environment rather than a `.env` file:
-
-```bash
-# On the server, export each secret then run:
-docker compose up -d
-```
-
-Or use a CI/CD pipeline that writes secrets to `.env` at deploy time.
+See [CONTRIBUTING.md](CONTRIBUTING.md#cicd-secrets-and-variables) for the full list of required secrets and variables.
 
 ---
 
