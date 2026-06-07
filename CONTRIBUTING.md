@@ -49,7 +49,7 @@ Already configured at the AMSAT GitHub organisation level — no action needed:
 
 | Name | Purpose |
 |---|---|
-| `AZURE_ACR_PUSH_CLIENT_ID` | OIDC client ID for ACR push |
+| `AZURE_ACR_CLIENT_ID` | OIDC client ID with AcrPush (and implicit AcrPull) on `amsatorg` |
 | `AZURE_TENANT_ID` | Azure AD tenant |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription |
 | `AZURE_ACR_NAME` | ACR registry name (no `.azurecr.io` suffix) |
