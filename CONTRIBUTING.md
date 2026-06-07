@@ -43,16 +43,23 @@ If you need to query or display additional WildApricot contact fields, add them 
 
 The GitHub Actions pipeline requires the following configuration. Secrets are redacted in logs; variables are visible.
 
+### Organisation Variables
+
+Already configured at the AMSAT GitHub organisation level — no action needed:
+
+| Name | Purpose |
+|---|---|
+| `AZURE_ACR_PUSH_CLIENT_ID` | OIDC client ID for ACR push |
+| `AZURE_TENANT_ID` | Azure AD tenant |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription |
+| `AZURE_ACR_NAME` | ACR registry name (no `.azurecr.io` suffix) |
+
 ### Repository Variables
 
 Repo → Settings → Secrets and variables → Actions → **Variables**:
 
 | Name | Example value | Purpose |
 |---|---|---|
-| `AZURE_ACR_PUSH_CLIENT_ID` | `xxxxxxxx-…` | OIDC client ID for ACR push |
-| `AZURE_TENANT_ID` | `xxxxxxxx-…` | Azure AD tenant |
-| `AZURE_SUBSCRIPTION_ID` | `xxxxxxxx-…` | Azure subscription |
-| `AZURE_ACR_NAME` | `amsatorg` | ACR registry name (no `.azurecr.io` suffix) |
 | `HOST_ADDRESS` | `your-server.example.com` | Deploy target hostname |
 | `HOST_USER` | `malberti` | SSH user on the deploy target |
 | `DISCORD_CLIENT_ID` | `1234567890` | Discord application (client) ID |
