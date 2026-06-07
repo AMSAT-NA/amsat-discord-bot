@@ -48,7 +48,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md#cicd-secrets-and-variables) for the ful
 ssh-keygen -t ed25519 -C "github-actions-amsat-discord-bot" -f ~/.ssh/amsat_deploy_key -N ""
 # Add the public key to the server:
 ssh-copy-id -i ~/.ssh/amsat_deploy_key.pub <user>@<server>
-# Add the private key to GitHub as the HOST_DEPLOY_KEY org secret.
+# Add the private key to GitHub as the HOST_DEPLOY_KEY repo secret.
 cat ~/.ssh/amsat_deploy_key
 ```
 

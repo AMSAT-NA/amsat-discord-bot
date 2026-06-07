@@ -61,7 +61,7 @@ Repo → Settings → Secrets and variables → Actions → **Variables**:
 | Name | Example value | Purpose |
 |---|---|---|
 | `HOST_ADDRESS` | `your-server.example.com` | Deploy target hostname |
-| `HOST_USER` | `malberti` | SSH user on the deploy target |
+| `HOST_USER` | `deploy` | SSH user on the deploy target |
 | `DISCORD_CLIENT_ID` | `1234567890` | Discord application (client) ID |
 | `DISCORD_GUILD_ID` | `9876543210` | Discord server (guild) ID |
 | `DISCORD_ADMIN_ROLE_ID` | `1111111111` | Role ID that grants `/admin` access |
