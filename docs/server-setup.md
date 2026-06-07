@@ -1,0 +1,62 @@
+# Server Setup & First Deploy Runbook
+
+Target: the production VM configured as `HOST_ADDRESS` in the repository variables, accessed as `HOST_USER`.
+
+After the one-time setup below, **all subsequent deploys are fully automated** — pushing to `main` triggers the CI/CD pipeline, which writes the `.env`, copies the compose file, and restarts the container.
+
+---
+
+## 1. Configure GitHub for CD
+
+See [CONTRIBUTING.md](../CONTRIBUTING.md#cicd-secrets-and-variables) for the full list. The minimum required before CD will work:
+
+**Repo secret** (repo → Settings → Secrets and variables → Actions → **Secrets**):
+- `HOST_DEPLOY_KEY` — ED25519 private key whose public half is in `~/.ssh/authorized_keys` on the server
+
+**Repo variables** (repo → Settings → Secrets and variables → Actions → **Variables**):
+- `HOST_ADDRESS` = the server's hostname or IP
+- `HOST_USER` = the SSH user on the server
+- All application variables (`DISCORD_CLIENT_ID`, `ROLE_MAP`, etc.)
+
+**Repo secrets**:
+- `DISCORD_TOKEN`, `WILDAPRICOT_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`
+
+### Generating the deploy key
+
+```bash
+ssh-keygen -t ed25519 -C "github-actions-amsat-discord-bot" -f ~/.ssh/amsat_deploy_key -N ""
+# Add the public key to the server:
+ssh-copy-id -i ~/.ssh/amsat_deploy_key.pub <user>@<server>
+# Add the private key to GitHub as the HOST_DEPLOY_KEY repo secret.
+cat ~/.ssh/amsat_deploy_key
+```
+
+---
+
+## 2. First Deploy
+
+Trigger the first deploy by pushing to `main` (or re-running the last workflow run). The CD pipeline will:
+
+1. Create `/opt/services/amsat-discord-bot/` on the server if it doesn't exist
+2. Copy `deploy/docker-compose.yml` to the server
+3. Generate `.env` from GitHub secrets/vars and copy it to the server
+4. Log in to ACR using `AZURE_ACR_CLIENT_ID` / `AZURE_ACR_CLIENT_SECRET`
+5. Run `docker compose pull && docker compose up -d --force-recreate`
+
+To verify on the server:
+
+```bash
+cd /opt/services/amsat-discord-bot
+docker compose logs -f
+```
+
+Watch for `Logged in as` and `Registered N commands` to confirm a clean start. Slash commands register automatically on startup.
+
+---
+
+## 3. Uptime Kuma Monitoring
+
+The bot has no public HTTP endpoint. Options:
+
+- **Docker container monitor** — works if Uptime Kuma runs on the same host (`amsat-discord-bot` container name)
+- **HTTP health endpoint** — add a lightweight `GET /health → 200` Express endpoint to the bot, expose it on a local port, and monitor that
