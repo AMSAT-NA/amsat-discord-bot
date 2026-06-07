@@ -165,5 +165,11 @@ jobs:
 
       - name: Pull image and restart container
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" \
-            'cd /opt/services/amsat-discord-bot && docker compose pull && docker compose up -d --force-recreate'
+          ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" bash -s <<'ENDSSH'
+          docker login amsatorg.azurecr.io \
+            --username ${{ secrets.AZURE_ACR_CLIENT_ID }} \
+            --password ${{ secrets.AZURE_ACR_CLIENT_SECRET }}
+          cd /opt/services/amsat-discord-bot
+          docker compose pull
+          docker compose up -d --force-recreate
+          ENDSSH

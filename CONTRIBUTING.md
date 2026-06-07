@@ -49,7 +49,7 @@ Already configured at the AMSAT GitHub organisation level — no action needed:
 
 | Name | Purpose |
 |---|---|
-| `AZURE_ACR_CLIENT_ID` | OIDC client ID with AcrPush (and implicit AcrPull) on `amsatorg` |
+| `AZURE_ACR_CLIENT_ID` | OIDC client ID with AcrPush (and implicit AcrPull) on `amsatorg` — also stored as a repo secret for runtime `docker login` in the deploy job |
 | `AZURE_TENANT_ID` | Azure AD tenant |
 | `AZURE_SUBSCRIPTION_ID` | Azure subscription |
 | `AZURE_ACR_NAME` | ACR registry name (no `.azurecr.io` suffix) |
@@ -80,6 +80,8 @@ Repo → Settings → Secrets and variables → Actions → **Secrets**:
 | Name | Purpose |
 |---|---|
 | `HOST_DEPLOY_KEY` | ED25519 private key for SSH access to `HOST_ADDRESS` |
+| `AZURE_ACR_CLIENT_ID` | Service principal client ID used to authenticate with ACR at deploy time |
+| `AZURE_ACR_CLIENT_SECRET` | Service principal client secret for ACR authentication |
 | `DISCORD_TOKEN` | Discord bot token |
 | `WILDAPRICOT_API_KEY` | WildApricot API key |
 | `AWS_ACCESS_KEY_ID` | IAM key with `ses:SendEmail` permission |
