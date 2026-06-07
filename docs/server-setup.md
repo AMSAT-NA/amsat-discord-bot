@@ -6,17 +6,7 @@ After the one-time setup below, **all subsequent deploys are fully automated** â
 
 ---
 
-## 1. Create the Service Directory
-
-```bash
-ssh <user>@<server>
-sudo mkdir -p /opt/services/amsat-discord-bot
-sudo chown <user>:<user> /opt/services/amsat-discord-bot
-```
-
----
-
-## 2. Configure ACR Pull Access
+## 1. Configure ACR Pull Access
 
 The server needs credentials to pull images from `amsatorg.azurecr.io`. The recommended approach for an Azure VM is to use a **managed identity** with AcrPull role assigned to the registry. If a managed identity is not available, create a scoped ACR token:
 
@@ -37,7 +27,7 @@ Docker stores the credential in `~/.docker/config.json`; future `docker compose 
 
 ---
 
-## 3. Configure GitHub for CD
+## 2. Configure GitHub for CD
 
 See [CONTRIBUTING.md](../CONTRIBUTING.md#cicd-secrets-and-variables) for the full list. The minimum required before CD will work:
 
@@ -64,13 +54,14 @@ cat ~/.ssh/amsat_deploy_key
 
 ---
 
-## 4. First Manual Deploy
+## 3. First Deploy
 
-Once the directory exists and ACR pull auth is configured, trigger the first deploy by pushing to `main` (or re-running the last workflow run). The CD pipeline will:
+Once ACR pull auth is configured, trigger the first deploy by pushing to `main` (or re-running the last workflow run). The CD pipeline will:
 
-1. Copy `deploy/docker-compose.yml` to `/opt/services/amsat-discord-bot/docker-compose.yml`
-2. Generate `.env` from GitHub secrets/vars and copy it to `/opt/services/amsat-discord-bot/.env`
-3. Run `docker compose pull && docker compose up -d --force-recreate`
+1. Create `/opt/services/amsat-discord-bot/` on the server if it doesn't exist
+2. Copy `deploy/docker-compose.yml` to the server
+3. Generate `.env` from GitHub secrets/vars and copy it to the server
+4. Run `docker compose pull && docker compose up -d --force-recreate`
 
 To verify on the server:
 
@@ -83,7 +74,7 @@ Watch for `Logged in as` and `Registered N commands` to confirm a clean start. S
 
 ---
 
-## 5. Uptime Kuma Monitoring
+## 4. Uptime Kuma Monitoring
 
 The bot has no public HTTP endpoint. Options:
 
