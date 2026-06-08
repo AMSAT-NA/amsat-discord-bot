@@ -36,11 +36,8 @@ WORKDIR /app
 # dumb-init ensures proper PID 1 behaviour and signal forwarding
 RUN apk add --no-cache dumb-init
 
-# Non-root user for security
-RUN addgroup -S botgroup && adduser -S botuser -G botgroup
-
 # Persistent data directory (mounted as a volume)
-RUN mkdir -p /data && chown botuser:botgroup /data
+RUN mkdir -p /data
 
 # Copy the pruned node_modules from the builder — the native better-sqlite3
 # binary was already compiled there against the same Alpine/Node base, so no
@@ -52,8 +49,6 @@ COPY --from=builder /app/dist ./dist
 
 # package.json is needed at runtime for module resolution
 COPY package.json ./
-
-USER botuser
 
 VOLUME ["/data"]
 
