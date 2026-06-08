@@ -260,20 +260,16 @@ async function handleUptime(interaction: ChatInputCommandInteraction): Promise<v
     dbInfo = `${config.DATABASE_PATH} (not found — volume may not be mounted)`;
   }
 
-  const hostname       = os.hostname();
-  const containerGroup = config.AZURE_CONTAINER_GROUP ?? hostname;
-
   await interaction.reply({
     embeds: [
       new EmbedBuilder()
         .setColor(Colors.Green)
         .setTitle('🟢  Bot Uptime')
         .addFields(
-          { name: 'Uptime',       value: formatUptime(),                                  inline: true  },
-          { name: 'Started (UTC)', value: startTime.toISOString().slice(0, 19) + ' UTC', inline: true  },
-          { name: 'Container',    value: containerGroup,                                  inline: true  },
-          { name: 'Hostname',     value: hostname,                                        inline: true  },
-          { name: 'Database',     value: dbInfo,                                          inline: false },
+          { name: 'Uptime',        value: formatUptime(),                                  inline: true  },
+          { name: 'Started (UTC)', value: startTime.toISOString().slice(0, 19) + ' UTC',  inline: true  },
+          { name: 'Hostname',      value: os.hostname(),                                   inline: true  },
+          { name: 'Database',      value: dbInfo,                                          inline: false },
         ),
     ],
     flags: MessageFlags.Ephemeral,

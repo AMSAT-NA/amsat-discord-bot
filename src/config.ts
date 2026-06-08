@@ -49,10 +49,6 @@ const configSchema = z.object({
   /** node-cron expression. Default: 2:00 AM every day */
   SYNC_CRON: z.string().default('0 2 * * *'),
 
-  // ── Azure (optional — used for /admin uptime) ────────────────────────────
-  /** Azure Container Group name — shown in /admin uptime, falls back to hostname */
-  AZURE_CONTAINER_GROUP: z.string().optional(),
-
   // ── Logging ────────────────────────────────────────────────────────────────
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('production'),
