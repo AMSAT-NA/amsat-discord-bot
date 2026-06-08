@@ -3,10 +3,17 @@ import { config } from '../config';
 const LEVELS = { debug: 0, info: 1, warn: 2, error: 3 } as const;
 const currentLevel = LEVELS[config.LOG_LEVEL];
 
+function replacer(_key: string, value: unknown): unknown {
+  if (value instanceof Error) {
+    return { message: value.message, stack: value.stack };
+  }
+  return value;
+}
+
 function log(level: keyof typeof LEVELS, message: string, meta?: unknown): void {
   if (LEVELS[level] < currentLevel) return;
   const ts = new Date().toISOString();
-  const metaPart = meta !== undefined ? ' ' + JSON.stringify(meta) : '';
+  const metaPart = meta !== undefined ? ' ' + JSON.stringify(meta, replacer) : '';
   const line = `[${ts}] [${level.toUpperCase().padEnd(5)}] ${message}${metaPart}`;
   if (level === 'error' || level === 'warn') {
     process.stderr.write(line + '\n');
