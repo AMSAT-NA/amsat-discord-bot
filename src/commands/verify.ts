@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import { config } from '../config';
@@ -54,7 +55,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 async function handleStart(interaction: ChatInputCommandInteraction): Promise<void> {
   // Ephemeral: only the user can see this reply
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const email = interaction.options.getString('email', true).toLowerCase().trim();
   const discordId = interaction.user.id;
@@ -118,7 +119,7 @@ async function handleStart(interaction: ChatInputCommandInteraction): Promise<vo
 // ─── /verify confirm ───────────────────────────────────────────────────────────
 
 async function handleConfirm(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const code = interaction.options.getString('code', true).trim();
   const discordId = interaction.user.id;
@@ -181,7 +182,24 @@ async function handleConfirm(interaction: ChatInputCommandInteraction): Promise<
     // Apply Discord role
     const guild = interaction.guild!;
     const guildMember = await guild.members.fetch(discordId);
-    await applyMembershipRole(guildMember, contact);
+    const roleResult = await applyMembershipRole(guildMember, contact);
+
+    // Active member with no mapped role means ROLE_MAP is misconfigured — treat as failure
+    if (isActiveMember(contact) && contact.MembershipLevel && roleResult.assignedRoleId === null) {
+      statements.deletePendingVerification.run(discordId);
+      logger.warn('Verification failed: no Discord role mapped for membership level', {
+        discordId,
+        email: pending.email,
+        level: contact.MembershipLevel.Name,
+      });
+      await interaction.editReply({
+        embeds: [errorEmbed(
+          `Your membership level **${contact.MembershipLevel.Name}** could not be matched to a Discord role.\n\n` +
+          'This is a server configuration issue — please contact an admin.',
+        )],
+      });
+      return;
+    }
 
     // Persist verified record and remove pending session
     statements.upsertVerifiedMember.run(
