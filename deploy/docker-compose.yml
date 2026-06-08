@@ -8,13 +8,9 @@ services:
       NODE_ENV: production
       DATABASE_PATH: /data/bot.db
     volumes:
-      - bot-data:/data
+      - ./data:/data
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "5"
-
-volumes:
-  bot-data:
-    driver: local

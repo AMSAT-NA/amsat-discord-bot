@@ -117,7 +117,7 @@ jobs:
       - name: Ensure service directory exists on server
         run: |
           ssh -i ~/.ssh/deploy_key "${{ vars.HOST_USER }}@${{ vars.HOST_ADDRESS }}" \
-            'mkdir -p /opt/services/amsat-discord-bot'
+            'mkdir -p /opt/services/amsat-discord-bot/data'
 
       - name: Generate .env from secrets and variables
         run: |
