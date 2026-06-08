@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import { statements } from '../db';
@@ -14,7 +15,7 @@ export const data = new SlashCommandBuilder()
   .setDescription('Check your current AMSAT membership status and refresh your roles');
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const discordId = interaction.user.id;
 

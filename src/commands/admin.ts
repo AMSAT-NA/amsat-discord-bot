@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
@@ -60,7 +61,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   // Extra guard: confirm the caller holds the configured admin role
   const caller = await interaction.guild!.members.fetch(interaction.user.id);
   if (!caller.roles.cache.has(config.DISCORD_ADMIN_ROLE_ID)) {
-    await interaction.reply({ content: '❌  You do not have permission to run admin commands.', ephemeral: true });
+    await interaction.reply({ content: '❌  You do not have permission to run admin commands.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -75,7 +76,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 // ─── /admin lookup ─────────────────────────────────────────────────────────────
 
 async function handleLookup(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const callsign = interaction.options.getString('callsign', true).trim().toUpperCase();
 
@@ -147,7 +148,7 @@ function contactField(contact: WildApricotContact): { name: string; value: strin
 // ─── /admin resync ─────────────────────────────────────────────────────────────
 
 async function handleResync(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const all = statements.getAllVerifiedMembers.all() as VerifiedMember[];
 
@@ -221,7 +222,7 @@ async function handleResync(interaction: ChatInputCommandInteraction): Promise<v
 // ─── /admin unlink ─────────────────────────────────────────────────────────────
 
 async function handleUnlink(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const target = interaction.options.getUser('user', true);
 
@@ -259,10 +260,8 @@ async function handleUptime(interaction: ChatInputCommandInteraction): Promise<v
     dbInfo = `${config.DATABASE_PATH} (not found — volume may not be mounted)`;
   }
 
-  // ── Azure container info (injected at deploy time, optional) ────────────────
   const hostname       = os.hostname();
   const containerGroup = config.AZURE_CONTAINER_GROUP ?? hostname;
-  const region         = config.AZURE_REGION          ?? 'unknown';
 
   await interaction.reply({
     embeds: [
@@ -270,15 +269,14 @@ async function handleUptime(interaction: ChatInputCommandInteraction): Promise<v
         .setColor(Colors.Green)
         .setTitle('🟢  Bot Uptime')
         .addFields(
-          { name: 'Uptime',           value: formatUptime(),                                    inline: true  },
-          { name: 'Started (UTC)',     value: startTime.toISOString().slice(0, 19) + ' UTC',   inline: true  },
-          { name: 'Container',         value: containerGroup,                                    inline: true  },
-          { name: 'Hostname',          value: hostname,                                          inline: true  },
-          { name: 'Region',            value: region,                                            inline: true  },
-          { name: 'Database',          value: dbInfo,                                            inline: false },
+          { name: 'Uptime',       value: formatUptime(),                                  inline: true  },
+          { name: 'Started (UTC)', value: startTime.toISOString().slice(0, 19) + ' UTC', inline: true  },
+          { name: 'Container',    value: containerGroup,                                  inline: true  },
+          { name: 'Hostname',     value: hostname,                                        inline: true  },
+          { name: 'Database',     value: dbInfo,                                          inline: false },
         ),
     ],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -301,6 +299,6 @@ async function handleVersion(interaction: ChatInputCommandInteraction): Promise<
         )
         .setTimestamp(),
     ],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }

@@ -1,4 +1,4 @@
-import { Client, Events, GatewayIntentBits, Interaction } from 'discord.js';
+import { Client, Events, GatewayIntentBits, Interaction, MessageFlags } from 'discord.js';
 import { config } from './config';
 import { commands } from './commands';
 import { registerCommands } from './utils/registerCommands';
@@ -53,11 +53,11 @@ client.on(Events.InteractionCreate, async (interaction: Interaction) => {
       err,
     });
 
-    const reply = { content: '❌  Something went wrong. Please try again later.', ephemeral: true };
+    const content = '❌  Something went wrong. Please try again later.';
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp(reply).catch(() => undefined);
+      await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined);
     } else {
-      await interaction.reply(reply).catch(() => undefined);
+      await interaction.reply({ content, flags: MessageFlags.Ephemeral }).catch(() => undefined);
     }
   }
 });

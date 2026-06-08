@@ -2,6 +2,7 @@ import {
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import { config } from '../config';
@@ -54,7 +55,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
 
 async function handleStart(interaction: ChatInputCommandInteraction): Promise<void> {
   // Ephemeral: only the user can see this reply
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const email = interaction.options.getString('email', true).toLowerCase().trim();
   const discordId = interaction.user.id;
@@ -118,7 +119,7 @@ async function handleStart(interaction: ChatInputCommandInteraction): Promise<vo
 // ─── /verify confirm ───────────────────────────────────────────────────────────
 
 async function handleConfirm(interaction: ChatInputCommandInteraction): Promise<void> {
-  await interaction.deferReply({ ephemeral: true });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   const code = interaction.options.getString('code', true).trim();
   const discordId = interaction.user.id;
