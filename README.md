@@ -326,7 +326,7 @@ src/
 ├── commands/
 │   ├── verify.ts        # /verify start and /verify confirm
 │   ├── membership.ts    # /membership
-│   ├── admin.ts         # /admin lookup | resync | unlink
+│   ├── admin.ts         # /admin lookup | resync | unlink | stats
 │   └── index.ts         # Command registry
 ├── services/
 │   ├── wildapricot.ts   # WildApricot API client (token caching, contact lookup)
@@ -393,13 +393,20 @@ Reports: total records, synced, role changes made, members no longer in the serv
 
 Removes the WildApricot link for a Discord user, allowing them to re-verify with a different email. Does **not** automatically remove their Discord roles — do that manually if needed.
 
+#### `/admin stats`
+
+Shows admin analytics for bot usage:
+- Current count of successfully verified members
+- Total `/tle` command calls
+- Most popular `/tle` satellite lookup over 24 hours, 7 days, and all time
+
 ---
 
 ## Architecture
 
 ### Database (SQLite)
 
-Two tables, stored in a Docker volume at `/data/bot.db`:
+Three tables, stored in a Docker volume at `/data/bot.db`:
 
 **`verified_members`** — One row per verified Discord user.
 
@@ -422,6 +429,17 @@ Two tables, stored in a Docker volume at `/data/bot.db`:
 | `otp_hash` | TEXT | SHA-256 hash of the OTP (plaintext never stored) |
 | `expires_at` | INTEGER | Unix timestamp (seconds) of expiry |
 | `attempts` | INTEGER | Number of failed confirm attempts |
+
+**`command_usage`** — Slash command interaction analytics used by `/admin stats`.
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | INTEGER PK | Auto-increment row ID |
+| `command_name` | TEXT | Top-level slash command name (`verify`, `admin`, `tle`, etc.) |
+| `subcommand_name` | TEXT nullable | Subcommand name when present (`start`, `confirm`, `lookup`, etc.) |
+| `detail` | TEXT nullable | Command-specific detail (`/tle` stores the requested satellite name) |
+| `user_id` | TEXT | Discord user snowflake ID of the caller |
+| `created_at` | TEXT | Timestamp of the interaction |
 
 ### WildApricot API
 

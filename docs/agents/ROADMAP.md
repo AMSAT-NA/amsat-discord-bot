@@ -6,11 +6,13 @@ Planned features, known gaps, and ideas for future development. Items are not pr
 
 ## Planned Features
 
-### `/admin stats`
-Return a summary of verified members by membership level and status. Useful for a quick health check without querying WildApricot directly.
+### Expand `/admin stats`
+`/admin stats` now reports:
+- Successfully verified member count (current linked records)
+- Total `/tle` command calls
+- Most popular `/tle` lookup over 24 hours, 7 days, and all time
 
-Suggested output:
-- Total verified Discord members
+Possible future additions:
 - Breakdown by membership level
 - Count of lapsed members still in the server
 - Last sync timestamp

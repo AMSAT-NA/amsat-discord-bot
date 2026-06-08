@@ -55,6 +55,11 @@ export const data = new SlashCommandBuilder()
     sub
       .setName('version')
       .setDescription('Show the deployed version (git commit SHA)'),
+  )
+  .addSubcommand(sub =>
+    sub
+      .setName('stats')
+      .setDescription('Show command usage and verification statistics'),
   );
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
@@ -71,6 +76,7 @@ export async function execute(interaction: ChatInputCommandInteraction): Promise
   if (sub === 'unlink')  await handleUnlink(interaction);
   if (sub === 'uptime')  await handleUptime(interaction);
   if (sub === 'version') await handleVersion(interaction);
+  if (sub === 'stats')   await handleStats(interaction);
 }
 
 // ─── /admin lookup ─────────────────────────────────────────────────────────────
@@ -292,6 +298,38 @@ async function handleVersion(interaction: ChatInputCommandInteraction): Promise<
           { name: 'Verified Members',   value: String(memberCount),     inline: true },
           { name: 'Node.js',            value: process.version,         inline: true },
           { name: 'Environment',        value: process.env.NODE_ENV ?? 'unknown', inline: true },
+        )
+        .setTimestamp(),
+    ],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+// ─── /admin stats ──────────────────────────────────────────────────────────────
+
+function formatTopLookup(lookup: { lookup: string; count: number } | undefined): string {
+  if (!lookup) return 'No lookups recorded yet.';
+  return `**${lookup.lookup}** (${lookup.count} call${lookup.count === 1 ? '' : 's'})`;
+}
+
+async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
+  const verifiedCount = statements.countVerifiedMembers.get()?.count ?? 0;
+  const tleCalls = statements.countCommandUsageByName.get('tle')?.count ?? 0;
+  const top24h = statements.topTleLookupSince.get('-1 day');
+  const top7d = statements.topTleLookupSince.get('-7 days');
+  const topAllTime = statements.topTleLookupAllTime.get();
+
+  await interaction.reply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor(Colors.Purple)
+        .setTitle('📈  Bot Usage Stats')
+        .addFields(
+          { name: 'Successfully Verified Members', value: String(verifiedCount), inline: true },
+          { name: '/tle Calls (All Time)', value: String(tleCalls), inline: true },
+          { name: 'Top /tle Lookup (24h)', value: formatTopLookup(top24h), inline: false },
+          { name: 'Top /tle Lookup (7d)', value: formatTopLookup(top7d), inline: false },
+          { name: 'Top /tle Lookup (All Time)', value: formatTopLookup(topAllTime), inline: false },
         )
         .setTimestamp(),
     ],

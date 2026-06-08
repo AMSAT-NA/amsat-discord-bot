@@ -22,7 +22,7 @@ Discord Bot (Node.js / TypeScript)
     │
     ├─► WildApricot REST API v2.2   — authoritative membership database
     ├─► Amazon SES                  — OTP email delivery
-    └─► SQLite (local file)         — verified member store, OTP sessions
+    └─► SQLite (local file)         — verified member store, OTP sessions, command usage metrics
 ```
 
 There is no external database, no HTTP server, and no message queue. Everything runs in a single Node.js process inside Docker.
