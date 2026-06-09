@@ -182,4 +182,8 @@ export const statements = {
     ORDER BY count DESC, lookup ASC
     LIMIT 1
   `),
+
+  pruneCommandUsage: db.prepare(
+    "DELETE FROM command_usage WHERE created_at < datetime('now', '-90 days')",
+  ),
 };

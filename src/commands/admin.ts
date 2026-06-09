@@ -327,10 +327,10 @@ async function handleStats(interaction: ChatInputCommandInteraction): Promise<vo
           .setTitle('📈  Bot Usage Stats')
           .addFields(
             { name: 'Successfully Verified Members', value: String(verifiedCount), inline: true },
-            { name: '/tle Calls (All Time)', value: String(tleCalls), inline: true },
+            { name: '/tle Calls (90 Days)', value: String(tleCalls), inline: true },
             { name: 'Top /tle Lookup (24h)', value: formatTopLookup(top24h), inline: false },
             { name: 'Top /tle Lookup (7d)', value: formatTopLookup(top7d), inline: false },
-            { name: 'Top /tle Lookup (All Time)', value: formatTopLookup(topAllTime), inline: false },
+            { name: 'Top /tle Lookup (90 Days)', value: formatTopLookup(topAllTime), inline: false },
           )
           .setTimestamp(),
       ],

@@ -24,6 +24,7 @@ export function startSyncJob(client: Client): void {
 
 async function runSync(client: Client): Promise<void> {
   logger.info('Scheduled membership sync starting');
+  statements.pruneCommandUsage.run();
 
   let guild;
   try {

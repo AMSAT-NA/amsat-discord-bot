@@ -397,8 +397,8 @@ Removes the WildApricot link for a Discord user, allowing them to re-verify with
 
 Shows admin analytics for bot usage:
 - Current count of successfully verified members
-- Total `/tle` command calls
-- Most popular `/tle` satellite lookup over 24 hours, 7 days, and all time
+- Total `/tle` command calls (last 90 days)
+- Most popular `/tle` satellite lookup over 24 hours, 7 days, and 90 days
 
 ---
 
