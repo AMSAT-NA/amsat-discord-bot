@@ -5,6 +5,7 @@ import { registerCommands } from './utils/registerCommands';
 import { startSyncJob } from './sync';
 import { logger } from './utils/logger';
 import { startTime, shortSha } from './state';
+import { statements } from './db';
 
 // ─── Discord client ────────────────────────────────────────────────────────────
 
@@ -37,6 +38,26 @@ client.once(Events.ClientReady, async c => {
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
   if (!interaction.isChatInputCommand()) return;
+
+  try {
+    const subcommand = interaction.options.getSubcommand(false);
+    const detail = interaction.commandName === 'tle'
+      ? interaction.options.getString('name', false)?.trim().toUpperCase() ?? null
+      : null;
+
+    statements.insertCommandUsage.run(
+      interaction.commandName,
+      subcommand,
+      detail,
+      interaction.user.id,
+    );
+  } catch (err) {
+    logger.warn('Failed to record command usage interaction', {
+      command: interaction.commandName,
+      user: interaction.user.tag,
+      err,
+    });
+  }
 
   const command = commands.get(interaction.commandName);
   if (!command) {

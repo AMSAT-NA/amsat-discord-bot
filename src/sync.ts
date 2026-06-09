@@ -23,7 +23,8 @@ export function startSyncJob(client: Client): void {
 }
 
 async function runSync(client: Client): Promise<void> {
-  logger.info('Scheduled membership sync starting');
+  logger.info('Scheduled sync starting: membership roles + command usage prune');
+  statements.pruneCommandUsage.run();
 
   let guild;
   try {
@@ -71,5 +72,5 @@ async function runSync(client: Client): Promise<void> {
     }
   }
 
-  logger.info('Scheduled membership sync complete', { total: all.length, synced, skipped, errors });
+  logger.info('Scheduled sync complete: membership roles + command usage prune', { total: all.length, synced, skipped, errors });
 }

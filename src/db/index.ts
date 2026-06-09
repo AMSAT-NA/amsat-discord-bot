@@ -42,6 +42,19 @@ db.exec(`
     attempts    INTEGER NOT NULL DEFAULT 0,
     created_at  TEXT    NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- Command interactions for admin analytics (/admin stats)
+  CREATE TABLE IF NOT EXISTS command_usage (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    command_name    TEXT    NOT NULL,
+    subcommand_name TEXT,
+    detail          TEXT,
+    user_id         TEXT    NOT NULL,
+    created_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_command_usage_name_created
+    ON command_usage(command_name, created_at);
 `);
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -63,6 +76,15 @@ export interface PendingVerification {
   expires_at: number;
   attempts: number;
   created_at: string;
+}
+
+export interface CountRow {
+  count: number;
+}
+
+export interface TopLookupRow {
+  lookup: string;
+  count: number;
 }
 
 // ─── Prepared statements ───────────────────────────────────────────────────────
@@ -124,5 +146,44 @@ export const statements = {
 
   cleanExpiredVerifications: db.prepare(
     "DELETE FROM pending_verifications WHERE expires_at < strftime('%s','now')",
+  ),
+
+  // ── Command usage analytics ───────────────────────────────────────────────
+
+  insertCommandUsage: db.prepare(
+    'INSERT INTO command_usage (command_name, subcommand_name, detail, user_id) VALUES (?, ?, ?, ?)',
+  ),
+
+  countVerifiedMembers: db.prepare<[], CountRow>(
+    'SELECT COUNT(*) AS count FROM verified_members',
+  ),
+
+  countCommandUsageByName: db.prepare<[string], CountRow>(
+    'SELECT COUNT(*) AS count FROM command_usage WHERE command_name = ?',
+  ),
+
+  topTleLookupSince: db.prepare<[string], TopLookupRow>(`
+    SELECT detail AS lookup, COUNT(*) AS count
+    FROM command_usage
+    WHERE command_name = 'tle'
+      AND detail IS NOT NULL
+      AND created_at >= datetime('now', ?)
+    GROUP BY detail
+    ORDER BY count DESC, lookup ASC
+    LIMIT 1
+  `),
+
+  topTleLookupAllTime: db.prepare<[], TopLookupRow>(`
+    SELECT detail AS lookup, COUNT(*) AS count
+    FROM command_usage
+    WHERE command_name = 'tle'
+      AND detail IS NOT NULL
+    GROUP BY detail
+    ORDER BY count DESC, lookup ASC
+    LIMIT 1
+  `),
+
+  pruneCommandUsage: db.prepare(
+    "DELETE FROM command_usage WHERE created_at < datetime('now', '-90 days')",
   ),
 };
