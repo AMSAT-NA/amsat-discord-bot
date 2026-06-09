@@ -21,6 +21,7 @@ Discord (user input / role assignment)
 Discord Bot (Node.js / TypeScript)
     │
     ├─► WildApricot REST API v2.2   — authoritative membership database
+    ├─► AMSAT Status API            — TLE satellite catalog names
     ├─► Amazon SES                  — OTP email delivery
     └─► SQLite (local file)         — verified member store, OTP sessions, command usage metrics
 ```

@@ -6,6 +6,7 @@ import { startSyncJob } from './sync';
 import { logger } from './utils/logger';
 import { startTime, shortSha } from './state';
 import { statements } from './db';
+import { prefetchTleCatalog } from './commands/tle';
 
 // ─── Discord client ────────────────────────────────────────────────────────────
 
@@ -33,10 +34,30 @@ client.once(Events.ClientReady, async c => {
     logger.error('Failed to register slash commands on startup', { err });
   }
 
+  await prefetchTleCatalog();
   startSyncJob(client);
 });
 
 client.on(Events.InteractionCreate, async (interaction: Interaction) => {
+  if (interaction.isAutocomplete()) {
+    const command = commands.get(interaction.commandName);
+    if (!command?.autocomplete) return;
+
+    try {
+      await command.autocomplete(interaction);
+    } catch (err) {
+      logger.warn('Autocomplete handler failed', {
+        command: interaction.commandName,
+        user: interaction.user.tag,
+        err,
+      });
+      if (!interaction.responded) {
+        await interaction.respond([]).catch(() => undefined);
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
 
   try {

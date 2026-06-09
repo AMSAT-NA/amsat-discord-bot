@@ -25,6 +25,10 @@ const configSchema = z.object({
 
   // ── WildApricot ────────────────────────────────────────────────────────────
   WILDAPRICOT_API_KEY: z.string().min(1, 'WildApricot API key is required'),
+
+  // ── AMSAT Status API ───────────────────────────────────────────────────────
+  SATELLITE_STATUS_API_CATALOG_ENDPOINT: z.string().url('SATELLITE_STATUS_API_CATALOG_ENDPOINT must be a valid URL'),
+
   // ── Amazon SES ─────────────────────────────────────────────────────────────
   AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS access key ID is required'),
   AWS_SECRET_ACCESS_KEY: z.string().min(1, 'AWS secret access key is required'),

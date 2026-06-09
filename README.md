@@ -206,6 +206,7 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `DISCORD_GUILD_ID` | ✅ | — | Your Discord server (guild) ID |
 | `DISCORD_ADMIN_ROLE_ID` | ✅ | — | Role ID that grants access to `/admin` commands |
 | `WILDAPRICOT_API_KEY` | ✅ | — | WildApricot API key |
+| `SATELLITE_STATUS_API_CATALOG_ENDPOINT` | — | `https://amsat.org/status/api/catalog.php` | Full AMSAT status catalog endpoint used by `/tle` autocomplete and `/tle list` |
 | `AWS_ACCESS_KEY_ID` | ✅ | — | AWS IAM access key ID |
 | `AWS_SECRET_ACCESS_KEY` | ✅ | — | AWS IAM secret access key |
 | `AWS_REGION` | — | `us-east-1` | AWS region for SES |
@@ -369,6 +370,21 @@ Completes verification. The bot validates the OTP, fetches fresh membership data
 #### `/membership`
 
 Shows the member's current membership status and refreshes their Discord role. Useful if a membership renewal hasn't been reflected yet.
+
+#### `/tle get name:<satellite>`
+
+Returns the latest TLE for the selected satellite.
+
+- Supports partial/fuzzy input (e.g. `ao91` can match `AO-91`)
+- Uses slash-option autocomplete so users can select valid names as they type
+- If no exact match is found, the bot suggests close matches
+
+#### `/tle list [filter:<text>]`
+
+Lists satellites available from the AMSAT status catalog.
+
+- Optional `filter` narrows results
+- Useful when you do not know the exact satellite name
 
 ---
 
