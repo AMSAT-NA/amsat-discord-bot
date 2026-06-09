@@ -313,26 +313,39 @@ function formatTopLookup(lookup: { lookup: string; count: number } | undefined):
 }
 
 async function handleStats(interaction: ChatInputCommandInteraction): Promise<void> {
-  const verifiedCount = statements.countVerifiedMembers.get()?.count ?? 0;
-  const tleCalls = statements.countCommandUsageByName.get('tle')?.count ?? 0;
-  const top24h = statements.topTleLookupSince.get('-1 day');
-  const top7d = statements.topTleLookupSince.get('-7 days');
-  const topAllTime = statements.topTleLookupAllTime.get();
+  try {
+    const verifiedCount = statements.countVerifiedMembers.get()?.count ?? 0;
+    const tleCalls = statements.countCommandUsageByName.get('tle')?.count ?? 0;
+    const top24h = statements.topTleLookupSince.get('-1 day');
+    const top7d = statements.topTleLookupSince.get('-7 days');
+    const topAllTime = statements.topTleLookupAllTime.get();
 
-  await interaction.reply({
-    embeds: [
-      new EmbedBuilder()
-        .setColor(Colors.Purple)
-        .setTitle('📈  Bot Usage Stats')
-        .addFields(
-          { name: 'Successfully Verified Members', value: String(verifiedCount), inline: true },
-          { name: '/tle Calls (All Time)', value: String(tleCalls), inline: true },
-          { name: 'Top /tle Lookup (24h)', value: formatTopLookup(top24h), inline: false },
-          { name: 'Top /tle Lookup (7d)', value: formatTopLookup(top7d), inline: false },
-          { name: 'Top /tle Lookup (All Time)', value: formatTopLookup(topAllTime), inline: false },
-        )
-        .setTimestamp(),
-    ],
-    flags: MessageFlags.Ephemeral,
-  });
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(Colors.Purple)
+          .setTitle('📈  Bot Usage Stats')
+          .addFields(
+            { name: 'Successfully Verified Members', value: String(verifiedCount), inline: true },
+            { name: '/tle Calls (All Time)', value: String(tleCalls), inline: true },
+            { name: 'Top /tle Lookup (24h)', value: formatTopLookup(top24h), inline: false },
+            { name: 'Top /tle Lookup (7d)', value: formatTopLookup(top7d), inline: false },
+            { name: 'Top /tle Lookup (All Time)', value: formatTopLookup(topAllTime), inline: false },
+          )
+          .setTimestamp(),
+      ],
+      flags: MessageFlags.Ephemeral,
+    });
+  } catch (err) {
+    logger.error('Error in /admin stats', { err });
+    await interaction.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor(Colors.Red)
+          .setTitle('❌  Stats Unavailable')
+          .setDescription('An error occurred retrieving stats. Please try again.'),
+      ],
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 }
