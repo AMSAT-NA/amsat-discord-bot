@@ -15,11 +15,17 @@ Patterns and standards used throughout the codebase. Follow these when adding or
 
 ## Command Handlers
 
-Every command file exports exactly two things:
+Every command file exports at least:
 
 ```typescript
 export const data: SlashCommandBuilder = ...   // command schema
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void>
+```
+
+Commands that use slash-option autocomplete may also export:
+
+```typescript
+export async function autocomplete(interaction: AutocompleteInteraction): Promise<void>
 ```
 
 Commands are registered in `src/commands/index.ts` by importing the module and calling `commands.set(cmd.data.name, cmd)`. Adding a new command means creating the file and adding one import + one set call there.

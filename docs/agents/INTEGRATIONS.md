@@ -136,3 +136,20 @@ All replies use `ephemeral: true`. An ephemeral reply requires that `deferReply(
 ### Interaction timeout
 
 Discord requires an initial response within 3 seconds. All handlers call `interaction.deferReply()` immediately before any async work. The deferred state keeps the interaction alive for up to 15 minutes.
+
+---
+
+## AMSAT Status API
+
+**Base URL (default):** `https://amsat.org/status/api`  
+**Configured by:** `AMSAT_STATUS_API_BASE_URL`
+
+### Catalog endpoint
+
+`/catalog.php` is used for `/tle` satellite name enumeration:
+
+- Slash-command autocomplete suggestions
+- `/tle list` output
+- "Did you mean?" suggestions when `/tle get` misses
+
+The catalog is cached in-memory and refreshed periodically to reduce API calls.

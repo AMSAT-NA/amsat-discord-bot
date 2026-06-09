@@ -66,6 +66,7 @@ Repo → Settings → Secrets and variables → Actions → **Variables**:
 | `DISCORD_GUILD_ID` | `9876543210` | Discord server (guild) ID |
 | `DISCORD_ADMIN_ROLE_ID` | `1111111111` | Role ID that grants `/admin` access |
 | `AWS_REGION` | `us-east-1` | SES region |
+| `AMSAT_STATUS_API_BASE_URL` | `https://amsat.org/status/api` | AMSAT status API base URL used by `/tle` catalog features |
 | `SES_FROM_ADDRESS` | `bot@amsat.org` | Verified SES sending address |
 | `SES_FROM_NAME` | `AMSAT Discord Bot` | Display name for outbound email |
 | `ROLE_MAP` | `{"Regular":"111","Life":"222"}` | WildApricot level → Discord role ID (JSON) |
