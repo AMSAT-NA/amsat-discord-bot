@@ -337,7 +337,6 @@ function readNameFromRecord(record: Record<string, unknown>): string | null {
 function isLikelySatelliteName(value: string): boolean {
   if (value.length < 2 || value.length > 64) return false;
   if (!/[A-Z]/i.test(value)) return false;
-  if (!/[A-Z0-9]/i.test(value)) return false;
   if (value.includes('http://') || value.includes('https://')) return false;
   return true;
 }

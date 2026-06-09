@@ -27,7 +27,7 @@ const configSchema = z.object({
   WILDAPRICOT_API_KEY: z.string().min(1, 'WildApricot API key is required'),
 
   // ── AMSAT Status API ───────────────────────────────────────────────────────
-  SATELLITE_STATUS_API_CATALOG_ENDPOINT: z.string().url().default('https://amsat.org/status/api/catalog.php'),
+  SATELLITE_STATUS_API_CATALOG_ENDPOINT: z.string().url('SATELLITE_STATUS_API_CATALOG_ENDPOINT must be a valid URL'),
 
   // ── Amazon SES ─────────────────────────────────────────────────────────────
   AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS access key ID is required'),
