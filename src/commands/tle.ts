@@ -254,8 +254,9 @@ async function getCatalogNames(forceRefresh = false): Promise<string[]> {
 }
 
 async function fetchCatalogNames(): Promise<string[]> {
-  const catalogUrl = `${config.AMSAT_STATUS_API_BASE_URL.replace(/\/+$/, '')}/catalog.php`;
-  const { data, status } = await axios.get<unknown>(catalogUrl, { timeout: 15000 });
+  const { data, status } = await axios.get<unknown>(config.SATELLITE_STATUS_API_CATALOG_ENDPOINT, {
+    timeout: 15000,
+  });
 
   if (status !== 200) {
     throw new Error(`Catalog endpoint returned status ${status}`);

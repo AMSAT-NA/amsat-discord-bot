@@ -141,12 +141,12 @@ Discord requires an initial response within 3 seconds. All handlers call `intera
 
 ## AMSAT Status API
 
-**Base URL (default):** `https://amsat.org/status/api`  
-**Configured by:** `AMSAT_STATUS_API_BASE_URL`
+**Catalog endpoint (default):** `https://amsat.org/status/api/catalog.php`  
+**Configured by:** `SATELLITE_STATUS_API_CATALOG_ENDPOINT`
 
 ### Catalog endpoint
 
-`/catalog.php` is used for `/tle` satellite name enumeration:
+The configured catalog endpoint is used for `/tle` satellite name enumeration:
 
 - Slash-command autocomplete suggestions
 - `/tle list` output

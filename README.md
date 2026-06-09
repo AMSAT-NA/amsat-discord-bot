@@ -206,7 +206,7 @@ All configuration is via environment variables. Copy `.env.example` to `.env` an
 | `DISCORD_GUILD_ID` | ✅ | — | Your Discord server (guild) ID |
 | `DISCORD_ADMIN_ROLE_ID` | ✅ | — | Role ID that grants access to `/admin` commands |
 | `WILDAPRICOT_API_KEY` | ✅ | — | WildApricot API key |
-| `AMSAT_STATUS_API_BASE_URL` | — | `https://amsat.org/status/api` | Base URL for AMSAT status catalog API used by `/tle` autocomplete and `/tle list` |
+| `SATELLITE_STATUS_API_CATALOG_ENDPOINT` | — | `https://amsat.org/status/api/catalog.php` | Full AMSAT status catalog endpoint used by `/tle` autocomplete and `/tle list` |
 | `AWS_ACCESS_KEY_ID` | ✅ | — | AWS IAM access key ID |
 | `AWS_SECRET_ACCESS_KEY` | ✅ | — | AWS IAM secret access key |
 | `AWS_REGION` | — | `us-east-1` | AWS region for SES |
