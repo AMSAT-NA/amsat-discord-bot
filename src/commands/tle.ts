@@ -10,8 +10,6 @@ import axios from 'axios';
 import { logger } from '../utils/logger';
 import { config } from '../config';
 
-// AMSAT "NASA bare" TLE feed — 3-line format: name / line1 / line2
-const TLE_URL = 'https://www.amsat.org/tle/current/nasabare.txt';
 const MAX_AUTOCOMPLETE_CHOICES = 25; // hard Discord API limit
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
@@ -23,10 +21,34 @@ let tleEntriesCache: TleEntry[] = [];
 let tleLastFetchedAt = 0;
 let tleFetchPromise: Promise<TleEntry[]> | null = null;
 
+let gpJsonCache: GpJsonEntry[] = [];
+let gpJsonLastFetchedAt = 0;
+let gpJsonFetchPromise: Promise<GpJsonEntry[]> | null = null;
+
 interface TleEntry {
   name: string;
   line1: string;
   line2: string;
+}
+
+interface GpJsonEntry {
+  AMSAT_NAME: string;
+  OBJECT_NAME: string;
+  OBJECT_ID: string;
+  INCLINATION: number;
+  ECCENTRICITY: number;
+  RA_OF_ASC_NODE: number;
+  ARG_OF_PERICENTER: number;
+  MEAN_ANOMALY: number;
+  MEAN_MOTION: number;
+  PERIOD: number;
+  APOAPSIS: number;
+  PERIAPSIS: number;
+  COUNTRY_CODE: string;
+  EPOCH: string;
+  NORAD_CAT_ID: number;
+  REV_AT_EPOCH: number;
+  BSTAR: number;
 }
 
 // ─── Command definition ────────────────────────────────────────────────────────
@@ -44,6 +66,17 @@ export const data = new SlashCommandBuilder()
           .setDescription('Satellite name, e.g. AO-91, RS-44, ARISS')
           .setRequired(true)
           .setAutocomplete(true),
+      )
+      .addStringOption(opt =>
+        opt
+          .setName('format')
+          .setDescription('Data format to return (default: both)')
+          .setRequired(false)
+          .addChoices(
+            { name: 'TLE (2-line elements)', value: 'tle' },
+            { name: 'JSON (orbital elements)', value: 'json' },
+            { name: 'Both', value: 'both' },
+          ),
       ),
   )
   .addSubcommand(sub =>
@@ -101,34 +134,73 @@ export async function prefetchTleCatalog(): Promise<void> {
   } catch (err) {
     logger.warn('Failed to prefetch TLE catalog', { err });
   }
+
+  try {
+    const gpJson = await getGpJsonEntries(true);
+    logger.info('GP JSON feed warmed', { gpJsonCount: gpJson.length });
+  } catch (err) {
+    logger.warn('Failed to prefetch GP JSON feed', { err });
+  }
 }
 
 async function handleLookup(interaction: ChatInputCommandInteraction): Promise<void> {
   // TLE data is public — not ephemeral so the channel benefits from the shared lookup.
   await interaction.deferReply();
   const rawQuery = interaction.options.getString('name', true).trim();
+  const formatArg = interaction.options.getString('format', false) ?? 'both';
+  const showTle = formatArg === 'tle' || formatArg === 'both';
+  const showJson = formatArg === 'json' || formatArg === 'both';
+
+  // Apply the same cleanup as catalog names so the query is consistent
+  // regardless of whether the user typed manually or selected from autocomplete.
+  const cleanQuery = rawQuery.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
+  const queryUpper = cleanQuery.toUpperCase();
 
   try {
-    const entries = await getTleEntries();
-    const catalogNames = await getCatalogNames().catch(() => entries.map(entry => entry.name));
+    // Fetch both datasets in parallel; a failure in one must not block the other.
+    let tleEntries: TleEntry[] = [];
+    let gpJsonEntries: GpJsonEntry[] = [];
+    let tleError = false;
+    let gpJsonError = false;
 
-    // Apply the same cleanup as catalog names so the query is consistent
-    // regardless of whether the user typed manually or selected from autocomplete.
-    const cleanQuery = rawQuery.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
-    const matches = findMatches(entries, cleanQuery);
-    const queryUpper = cleanQuery.toUpperCase();
+    const [tleResult, gpResult] = await Promise.allSettled([
+      getTleEntries(),
+      getGpJsonEntries(),
+    ]);
 
-    if (matches.length === 0) {
-      // Suggest alternatives from the catalog, excluding names that normalize to
-      // the same string as the query (which would produce a "did you mean [same name]"
-      // message — that means the satellite is tracked but has no current TLE data).
+    if (tleResult.status === 'fulfilled') {
+      tleEntries = tleResult.value;
+    } else {
+      tleError = true;
+      logger.warn('Failed to fetch TLE entries during lookup', { err: tleResult.reason });
+    }
+
+    if (gpResult.status === 'fulfilled') {
+      gpJsonEntries = gpResult.value;
+    } else {
+      gpJsonError = true;
+      logger.warn('Failed to fetch GP JSON entries during lookup', { err: gpResult.reason });
+    }
+
+    const tleMatches = findMatches(tleEntries, cleanQuery);
+    const jsonMatch = findJsonEntry(gpJsonEntries, cleanQuery);
+
+    // Nothing found in either dataset
+    if (tleMatches.length === 0 && !jsonMatch) {
+      if (tleError && gpJsonError) {
+        await interaction.editReply(
+          'There was an error contacting the AMSAT data sources. Please try again later.',
+        );
+        return;
+      }
+
+      const catalogNames = await getCatalogNames().catch(() => []);
       const normalizedQuery = normalizeName(cleanQuery);
       const suggestions = rankNames(catalogNames, cleanQuery, 6)
         .filter(name => normalizeName(name) !== normalizedQuery)
         .slice(0, 5);
-
       const inCatalog = catalogNames.some(name => normalizeName(name) === normalizedQuery);
-      logger.info('TLE not found', { query: queryUpper, inCatalog, user: interaction.user.tag });
+      logger.info('Satellite not found', { query: queryUpper, inCatalog, user: interaction.user.tag });
 
       await interaction.editReply({
         embeds: [
@@ -137,23 +209,24 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
             .setTitle('🛰️  Satellite Not Found')
             .setDescription(
               inCatalog
-                ? `**${queryUpper}** is tracked by AMSAT but has no current TLE data in the feed.\n\n` +
+                ? `**${queryUpper}** is tracked by AMSAT but has no current data in either feed.\n\n` +
                   'Try again later, or use `/tle list` to browse satellites with available data.'
-                : `No TLE data found for **${queryUpper}**.\n\n` +
+                : `No data found for **${queryUpper}**.\n\n` +
                   (suggestions.length > 0
                     ? `Did you mean: ${suggestions.map(name => `\`${name}\``).join(', ')}?\n\n`
                     : '') +
                   'Use `/tle list` to browse available satellites.',
             )
-            .setFooter({ text: 'Source: AMSAT status API catalog + AMSAT TLE feed' }),
+            .setFooter({ text: 'Source: AMSAT status API catalog · TLE feed · GP data feed' }),
         ],
       });
       return;
     }
 
-    if (matches.length > 1) {
-      const options = matches.slice(0, 5).map(entry => `\`${entry.name}\``).join(', ');
-      logger.info('TLE lookup ambiguous', { query: queryUpper, matches: matches.length, user: interaction.user.tag });
+    // Ambiguous TLE results
+    if (tleMatches.length > 1) {
+      const options = tleMatches.slice(0, 5).map(e => `\`${e.name}\``).join(', ');
+      logger.info('TLE lookup ambiguous', { query: queryUpper, matches: tleMatches.length, user: interaction.user.tag });
 
       await interaction.editReply({
         embeds: [
@@ -165,27 +238,64 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
               `Try one of: ${options}\n\n` +
               'Use autocomplete or `/tle list` to pick an exact name.',
             )
-            .setFooter({ text: 'Source: AMSAT status API catalog + AMSAT TLE feed' }),
+            .setFooter({ text: 'Source: AMSAT TLE feed' }),
         ],
       });
       return;
     }
 
-    const entry = matches[0]!;
-    logger.info('TLE lookup successful', { query: queryUpper, matched: entry.name, user: interaction.user.tag });
+    // Resolve a single TLE entry (may be null if satellite is only in GP JSON)
+    const tleEntry = tleMatches.length === 1 ? tleMatches[0]! : null;
 
-    await interaction.editReply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(Colors.Blue)
-          .setTitle(`🛰️  ${entry.name}`)
-          .setDescription(`\`\`\`\n${entry.name}\n${entry.line1}\n${entry.line2}\n\`\`\``)
-          .setFooter({ text: 'Source: AMSAT TLE feed · nasabare.txt' })
-          .setTimestamp(),
-      ],
+    // Canonical name: prefer TLE name; fall back to GP JSON AMSAT_NAME
+    const canonicalName = tleEntry?.name ?? jsonMatch!.AMSAT_NAME;
+
+    // Cross-reference: if the query matched only one dataset, look up by canonical name in the other
+    const resolvedJsonMatch =
+      jsonMatch ?? (tleEntry ? findJsonEntry(gpJsonEntries, tleEntry.name) : null);
+
+    logger.info('Satellite lookup successful', {
+      query: queryUpper,
+      matched: canonicalName,
+      format: formatArg,
+      inTle: !!tleEntry,
+      inGpJson: !!resolvedJsonMatch,
+      user: interaction.user.tag,
     });
+
+    const footerParts: string[] = [];
+    if (showTle) footerParts.push('TLE feed');
+    if (showJson) footerParts.push('GP data feed');
+
+    const embed = new EmbedBuilder()
+      .setColor(Colors.Blue)
+      .setTitle(`🛰️  ${canonicalName}`)
+      .setFooter({ text: `Source: AMSAT ${footerParts.join(' + ')}` })
+      .setTimestamp();
+
+    if (showTle) {
+      if (tleError) {
+        embed.setDescription('_Error fetching TLE feed. Please try again._');
+      } else if (!tleEntry) {
+        embed.setDescription('_Not available in the TLE feed for this satellite._');
+      } else {
+        embed.setDescription(`\`\`\`\n${tleEntry.name}\n${tleEntry.line1}\n${tleEntry.line2}\n\`\`\``);
+      }
+    }
+
+    if (showJson) {
+      if (gpJsonError) {
+        embed.addFields({ name: 'Orbital Elements', value: '_Error fetching GP data feed. Please try again._' });
+      } else if (!resolvedJsonMatch) {
+        embed.addFields({ name: 'Orbital Elements', value: '_Not available in the GP data feed for this satellite._' });
+      } else {
+        embed.addFields(buildGpJsonFields(resolvedJsonMatch));
+      }
+    }
+
+    await interaction.editReply({ embeds: [embed] });
   } catch (err) {
-    logger.error('Error in /tle get', { err, query: rawQuery.toUpperCase() });
+    logger.error('Error in /tle get', { err, query: queryUpper });
     await interaction.editReply(
       'There was an error contacting the AMSAT data sources. Please try again later.',
     );
@@ -281,6 +391,85 @@ async function getTleEntries(forceRefresh = false): Promise<TleEntry[]> {
     });
 
   return tleFetchPromise;
+}
+
+async function getGpJsonEntries(forceRefresh = false): Promise<GpJsonEntry[]> {
+  const now = Date.now();
+  if (!forceRefresh && gpJsonCache.length > 0 && now - gpJsonLastFetchedAt < CACHE_TTL_MS) {
+    return gpJsonCache;
+  }
+
+  if (gpJsonFetchPromise) return gpJsonFetchPromise;
+
+  gpJsonFetchPromise = fetchGpJsonEntries()
+    .then(entries => {
+      gpJsonCache = entries;
+      gpJsonLastFetchedAt = Date.now();
+      return entries;
+    })
+    .finally(() => {
+      gpJsonFetchPromise = null;
+    });
+
+  return gpJsonFetchPromise;
+}
+
+async function fetchGpJsonEntries(): Promise<GpJsonEntry[]> {
+  const { data, status } = await axios.get<unknown>(config.GP_JSON_URL, {
+    timeout: 15000,
+  });
+
+  if (status !== 200) {
+    throw new Error(`GP JSON endpoint returned status ${status}`);
+  }
+
+  const raw = Array.isArray(data)
+    ? data
+    : typeof data === 'object' && data !== null
+      ? Object.values(data)
+      : [];
+
+  const entries = raw.filter(isGpJsonEntry);
+  if (entries.length === 0) {
+    throw new Error('GP JSON feed contained no valid entries');
+  }
+
+  return entries;
+}
+
+function isGpJsonEntry(entry: unknown): entry is GpJsonEntry {
+  return (
+    typeof entry === 'object' &&
+    entry !== null &&
+    'AMSAT_NAME' in entry &&
+    'NORAD_CAT_ID' in entry &&
+    'EPOCH' in entry
+  );
+}
+
+function findJsonEntry(entries: GpJsonEntry[], tleName: string): GpJsonEntry | null {
+  const normalized = normalizeName(tleName);
+  return (
+    entries.find(e => normalizeName(e.AMSAT_NAME) === normalized) ??
+    entries.find(e => normalizeName(e.OBJECT_NAME) === normalized) ??
+    null
+  );
+}
+
+function buildGpJsonFields(entry: GpJsonEntry): { name: string; value: string; inline?: boolean }[] {
+  const epoch = entry.EPOCH.replace('T', ' ').replace(/\.\d+Z$/, ' UTC').replace('Z', ' UTC');
+  return [
+    { name: 'NORAD ID',     value: String(entry.NORAD_CAT_ID),               inline: true },
+    { name: 'Object ID',    value: entry.OBJECT_ID,                           inline: true },
+    { name: 'Country',      value: entry.COUNTRY_CODE,                        inline: true },
+    { name: 'Epoch',        value: epoch,                                      inline: false },
+    { name: 'Apoapsis',     value: `${entry.APOAPSIS.toFixed(1)} km`,          inline: true },
+    { name: 'Periapsis',    value: `${entry.PERIAPSIS.toFixed(1)} km`,         inline: true },
+    { name: 'Period',       value: `${entry.PERIOD.toFixed(2)} min`,           inline: true },
+    { name: 'Inclination',  value: `${entry.INCLINATION.toFixed(4)}°`,         inline: true },
+    { name: 'Eccentricity', value: entry.ECCENTRICITY.toFixed(7),              inline: true },
+    { name: 'Mean Motion',  value: `${entry.MEAN_MOTION.toFixed(6)} rev/day`,  inline: true },
+  ];
 }
 
 async function fetchCatalogNames(): Promise<string[]> {
@@ -380,7 +569,7 @@ function isLikelySatelliteName(value: string): boolean {
 }
 
 async function fetchTleEntries(): Promise<TleEntry[]> {
-  const { data: rawTle, status } = await axios.get<string>(TLE_URL, {
+  const { data: rawTle, status } = await axios.get<string>(config.GP_TLE_URL, {
     responseType: 'text',
     timeout: 15000,
   });

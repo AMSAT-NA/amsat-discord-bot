@@ -67,6 +67,8 @@ Repo → Settings → Secrets and variables → Actions → **Variables**:
 | `DISCORD_ADMIN_ROLE_ID` | `1111111111` | Role ID that grants `/admin` access |
 | `AWS_REGION` | `us-east-1` | SES region |
 | `SATELLITE_STATUS_API_CATALOG_ENDPOINT` | `https://amsat.org/status/api/catalog.php` | Full AMSAT status catalog endpoint used by `/tle` catalog features |
+| `GP_TLE_URL` | `https://www.amsat.org/tle/current/nasabare.txt` | AMSAT TLE feed — "NASA bare" 3-line format used by `/tle get` |
+| `GP_JSON_URL` | `https://newark192.amsat.org/gpdata/current/daily-bulletin.json` | AMSAT GP data feed — JSON orbital elements used by `/tle get` |
 | `SES_FROM_ADDRESS` | `bot@amsat.org` | Verified SES sending address |
 | `SES_FROM_NAME` | `AMSAT Discord Bot` | Display name for outbound email |
 | `ROLE_MAP` | `{"Regular":"111","Life":"222"}` | WildApricot level → Discord role ID (JSON) |

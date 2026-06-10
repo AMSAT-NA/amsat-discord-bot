@@ -28,6 +28,10 @@ const configSchema = z.object({
 
   // ── AMSAT Status API ───────────────────────────────────────────────────────
   SATELLITE_STATUS_API_CATALOG_ENDPOINT: z.string().url('SATELLITE_STATUS_API_CATALOG_ENDPOINT must be a valid URL'),
+  /** AMSAT TLE feed — "NASA bare" 3-line format (name / line1 / line2) */
+  GP_TLE_URL: z.string().url('GP_TLE_URL must be a valid URL'),
+  /** AMSAT GP data feed — JSON array of richer orbital element objects */
+  GP_JSON_URL: z.string().url('GP_JSON_URL must be a valid URL'),
 
   // ── Amazon SES ─────────────────────────────────────────────────────────────
   AWS_ACCESS_KEY_ID: z.string().min(1, 'AWS access key ID is required'),
