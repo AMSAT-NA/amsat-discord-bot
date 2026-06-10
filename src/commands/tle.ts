@@ -203,7 +203,7 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
         new EmbedBuilder()
           .setColor(Colors.Blue)
           .setTitle('🛰️  Available Satellites')
-          .setDescription(formatAsColumns(filteredNames, 3))
+          .setDescription(formatAsColumns(filteredNames, 2))
           .addFields({
             name: 'Results',
             value: filter.length > 0
@@ -304,11 +304,11 @@ function parseCatalogNames(payload: unknown): string[] {
 
   visit(payload);
 
-  // Strip operating-mode suffixes like "[FM]" or "[Mode B]" so catalog names
-  // match the TLE feed, which uses bare names. Dedup after stripping.
+  // Strip operating-mode suffixes like "[FM]" or "[Mode B]" and trailing
+  // underscores so catalog names match the TLE feed bare names. Dedup after.
   const cleanNames = new Set<string>();
   for (const raw of names) {
-    const clean = raw.replace(/\s*\[.*?\]\s*$/, '').trim();
+    const clean = raw.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
     if (isLikelySatelliteName(clean)) cleanNames.add(clean);
   }
   return [...cleanNames].sort((a, b) => a.localeCompare(b));
