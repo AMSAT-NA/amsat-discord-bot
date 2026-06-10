@@ -151,27 +151,56 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
   const showTle = formatArg === 'tle' || formatArg === 'both';
   const showJson = formatArg === 'json' || formatArg === 'both';
 
+  // Apply the same cleanup as catalog names so the query is consistent
+  // regardless of whether the user typed manually or selected from autocomplete.
+  const cleanQuery = rawQuery.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
+  const queryUpper = cleanQuery.toUpperCase();
+
   try {
-    const entries = await getTleEntries();
-    const catalogNames = await getCatalogNames().catch(() => entries.map(entry => entry.name));
+    // Fetch both datasets in parallel; a failure in one must not block the other.
+    let tleEntries: TleEntry[] = [];
+    let gpJsonEntries: GpJsonEntry[] = [];
+    let tleError = false;
+    let gpJsonError = false;
 
-    // Apply the same cleanup as catalog names so the query is consistent
-    // regardless of whether the user typed manually or selected from autocomplete.
-    const cleanQuery = rawQuery.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
-    const matches = findMatches(entries, cleanQuery);
-    const queryUpper = cleanQuery.toUpperCase();
+    const [tleResult, gpResult] = await Promise.allSettled([
+      getTleEntries(),
+      getGpJsonEntries(),
+    ]);
 
-    if (matches.length === 0) {
-      // Suggest alternatives from the catalog, excluding names that normalize to
-      // the same string as the query (which would produce a "did you mean [same name]"
-      // message — that means the satellite is tracked but has no current TLE data).
+    if (tleResult.status === 'fulfilled') {
+      tleEntries = tleResult.value;
+    } else {
+      tleError = true;
+      logger.warn('Failed to fetch TLE entries during lookup', { err: tleResult.reason });
+    }
+
+    if (gpResult.status === 'fulfilled') {
+      gpJsonEntries = gpResult.value;
+    } else {
+      gpJsonError = true;
+      logger.warn('Failed to fetch GP JSON entries during lookup', { err: gpResult.reason });
+    }
+
+    const tleMatches = findMatches(tleEntries, cleanQuery);
+    const jsonMatch = findJsonEntry(gpJsonEntries, cleanQuery);
+
+    // Nothing found in either dataset
+    if (tleMatches.length === 0 && !jsonMatch) {
+      if (tleError && gpJsonError) {
+        await interaction.editReply(
+          'There was an error contacting the AMSAT data sources. Please try again later.',
+        );
+        return;
+      }
+
+      const catalogNames = await getCatalogNames().catch(() => []);
       const normalizedQuery = normalizeName(cleanQuery);
       const suggestions = rankNames(catalogNames, cleanQuery, 6)
         .filter(name => normalizeName(name) !== normalizedQuery)
         .slice(0, 5);
-
       const inCatalog = catalogNames.some(name => normalizeName(name) === normalizedQuery);
-      logger.info('TLE not found', { query: queryUpper, inCatalog, user: interaction.user.tag });
+      logger.info('Satellite not found', { query: queryUpper, inCatalog, user: interaction.user.tag });
 
       await interaction.editReply({
         embeds: [
@@ -180,23 +209,24 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
             .setTitle('🛰️  Satellite Not Found')
             .setDescription(
               inCatalog
-                ? `**${queryUpper}** is tracked by AMSAT but has no current TLE data in the feed.\n\n` +
+                ? `**${queryUpper}** is tracked by AMSAT but has no current data in either feed.\n\n` +
                   'Try again later, or use `/tle list` to browse satellites with available data.'
-                : `No TLE data found for **${queryUpper}**.\n\n` +
+                : `No data found for **${queryUpper}**.\n\n` +
                   (suggestions.length > 0
                     ? `Did you mean: ${suggestions.map(name => `\`${name}\``).join(', ')}?\n\n`
                     : '') +
                   'Use `/tle list` to browse available satellites.',
             )
-            .setFooter({ text: 'Source: AMSAT status API catalog + AMSAT TLE feed' }),
+            .setFooter({ text: 'Source: AMSAT status API catalog · TLE feed · GP data feed' }),
         ],
       });
       return;
     }
 
-    if (matches.length > 1) {
-      const options = matches.slice(0, 5).map(entry => `\`${entry.name}\``).join(', ');
-      logger.info('TLE lookup ambiguous', { query: queryUpper, matches: matches.length, user: interaction.user.tag });
+    // Ambiguous TLE results
+    if (tleMatches.length > 1) {
+      const options = tleMatches.slice(0, 5).map(e => `\`${e.name}\``).join(', ');
+      logger.info('TLE lookup ambiguous', { query: queryUpper, matches: tleMatches.length, user: interaction.user.tag });
 
       await interaction.editReply({
         embeds: [
@@ -208,27 +238,30 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
               `Try one of: ${options}\n\n` +
               'Use autocomplete or `/tle list` to pick an exact name.',
             )
-            .setFooter({ text: 'Source: AMSAT status API catalog + AMSAT TLE feed' }),
+            .setFooter({ text: 'Source: AMSAT TLE feed' }),
         ],
       });
       return;
     }
 
-    const entry = matches[0]!;
+    // Resolve a single TLE entry (may be null if satellite is only in GP JSON)
+    const tleEntry = tleMatches.length === 1 ? tleMatches[0]! : null;
 
-    let gpJsonEntry: GpJsonEntry | null = null;
-    let gpJsonError = false;
-    if (showJson) {
-      try {
-        const gpJsonEntries = await getGpJsonEntries();
-        gpJsonEntry = findJsonEntry(gpJsonEntries, entry.name);
-      } catch (err) {
-        gpJsonError = true;
-        logger.warn('Failed to fetch GP JSON feed during lookup', { err, satellite: entry.name });
-      }
-    }
+    // Canonical name: prefer TLE name; fall back to GP JSON AMSAT_NAME
+    const canonicalName = tleEntry?.name ?? jsonMatch!.AMSAT_NAME;
 
-    logger.info('TLE lookup successful', { query: queryUpper, matched: entry.name, format: formatArg, user: interaction.user.tag });
+    // Cross-reference: if the query matched only one dataset, look up by canonical name in the other
+    const resolvedJsonMatch =
+      jsonMatch ?? (tleEntry ? findJsonEntry(gpJsonEntries, tleEntry.name) : null);
+
+    logger.info('Satellite lookup successful', {
+      query: queryUpper,
+      matched: canonicalName,
+      format: formatArg,
+      inTle: !!tleEntry,
+      inGpJson: !!resolvedJsonMatch,
+      user: interaction.user.tag,
+    });
 
     const footerParts: string[] = [];
     if (showTle) footerParts.push('TLE feed');
@@ -236,27 +269,33 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
 
     const embed = new EmbedBuilder()
       .setColor(Colors.Blue)
-      .setTitle(`🛰️  ${entry.name}`)
+      .setTitle(`🛰️  ${canonicalName}`)
       .setFooter({ text: `Source: AMSAT ${footerParts.join(' + ')}` })
       .setTimestamp();
 
     if (showTle) {
-      embed.setDescription(`\`\`\`\n${entry.name}\n${entry.line1}\n${entry.line2}\n\`\`\``);
+      if (tleError) {
+        embed.setDescription('_Error fetching TLE feed. Please try again._');
+      } else if (!tleEntry) {
+        embed.setDescription('_Not available in the TLE feed for this satellite._');
+      } else {
+        embed.setDescription(`\`\`\`\n${tleEntry.name}\n${tleEntry.line1}\n${tleEntry.line2}\n\`\`\``);
+      }
     }
 
     if (showJson) {
       if (gpJsonError) {
         embed.addFields({ name: 'Orbital Elements', value: '_Error fetching GP data feed. Please try again._' });
-      } else if (gpJsonEntry) {
-        embed.addFields(buildGpJsonFields(gpJsonEntry));
-      } else {
+      } else if (!resolvedJsonMatch) {
         embed.addFields({ name: 'Orbital Elements', value: '_Not available in the GP data feed for this satellite._' });
+      } else {
+        embed.addFields(buildGpJsonFields(resolvedJsonMatch));
       }
     }
 
     await interaction.editReply({ embeds: [embed] });
   } catch (err) {
-    logger.error('Error in /tle get', { err, query: rawQuery.toUpperCase() });
+    logger.error('Error in /tle get', { err, query: queryUpper });
     await interaction.editReply(
       'There was an error contacting the AMSAT data sources. Please try again later.',
     );
