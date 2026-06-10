@@ -3,6 +3,7 @@ import {
   ChatInputCommandInteraction,
   Colors,
   EmbedBuilder,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import axios from 'axios';
@@ -11,8 +12,7 @@ import { config } from '../config';
 
 // AMSAT "NASA bare" TLE feed — 3-line format: name / line1 / line2
 const TLE_URL = 'https://www.amsat.org/tle/current/nasabare.txt';
-const MAX_AUTOCOMPLETE_CHOICES = 25;
-const MAX_LIST_RESULTS = 50;
+const MAX_AUTOCOMPLETE_CHOICES = 25; // hard Discord API limit
 const CATALOG_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 let catalogNamesCache: string[] = [];
@@ -57,9 +57,6 @@ export const data = new SlashCommandBuilder()
 // ─── Handler ───────────────────────────────────────────────────────────────────
 
 export async function execute(interaction: ChatInputCommandInteraction): Promise<void> {
-  // TLE data is public — not ephemeral so the channel benefits from the shared lookup.
-  await interaction.deferReply();
-
   const subcommand = interaction.options.getSubcommand();
   if (subcommand === 'list') {
     await handleList(interaction);
@@ -103,6 +100,8 @@ export async function prefetchTleCatalog(): Promise<void> {
 }
 
 async function handleLookup(interaction: ChatInputCommandInteraction): Promise<void> {
+  // TLE data is public — not ephemeral so the channel benefits from the shared lookup.
+  await interaction.deferReply();
   const rawQuery = interaction.options.getString('name', true).trim();
 
   try {
@@ -175,6 +174,7 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
 }
 
 async function handleList(interaction: ChatInputCommandInteraction): Promise<void> {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   const filter = interaction.options.getString('filter', false)?.trim() ?? '';
 
   try {
@@ -198,21 +198,17 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
       return;
     }
 
-    const shown = filteredNames.slice(0, MAX_LIST_RESULTS);
-    const hasMore = filteredNames.length > shown.length;
-
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setColor(Colors.Blue)
           .setTitle('🛰️  Available Satellites')
-          .setDescription(shown.map(name => `• ${name}`).join('\n'))
+          .setDescription(formatAsColumns(filteredNames, 3))
           .addFields({
             name: 'Results',
-            value:
-              `Showing ${shown.length} of ${filteredNames.length}` +
-              (filter.length > 0 ? ` matches for \`${filter.toUpperCase()}\`` : ' total satellites') +
-              (hasMore ? '. Narrow with `/tle list filter:<text>`.' : '.'),
+            value: filter.length > 0
+              ? `${filteredNames.length} of ${names.length} satellites match \`${filter.toUpperCase()}\`.`
+              : `${filteredNames.length} satellites in the AMSAT catalog.`,
           })
           .setFooter({ text: 'Source: AMSAT status API catalog' })
           .setTimestamp(),
@@ -307,7 +303,15 @@ function parseCatalogNames(payload: unknown): string[] {
   };
 
   visit(payload);
-  return [...names].sort((a, b) => a.localeCompare(b));
+
+  // Strip operating-mode suffixes like "[FM]" or "[Mode B]" so catalog names
+  // match the TLE feed, which uses bare names. Dedup after stripping.
+  const cleanNames = new Set<string>();
+  for (const raw of names) {
+    const clean = raw.replace(/\s*\[.*?\]\s*$/, '').trim();
+    if (isLikelySatelliteName(clean)) cleanNames.add(clean);
+  }
+  return [...cleanNames].sort((a, b) => a.localeCompare(b));
 }
 
 function readNameFromRecord(record: Record<string, unknown>): string | null {
@@ -431,6 +435,17 @@ function scoreName(name: string, normalizedQuery: string): number {
 
 function normalizeName(value: string): string {
   return value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+function formatAsColumns(names: string[], cols: number): string {
+  const colWidth = Math.max(...names.map(n => n.length)) + 3;
+  const lines: string[] = [];
+  for (let i = 0; i < names.length; i += cols) {
+    const row = names.slice(i, i + cols);
+    const line = row.map((name, j) => j < row.length - 1 ? name.padEnd(colWidth) : name).join('');
+    lines.push(line);
+  }
+  return '```\n' + lines.join('\n') + '\n```';
 }
 
 function levenshteinDistance(a: string, b: string): number {
