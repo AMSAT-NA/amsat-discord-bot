@@ -97,7 +97,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 export async function prefetchTleCatalog(): Promise<void> {
   try {
     const [names] = await Promise.all([getCatalogNames(true), getTleEntries(true)]);
-    logger.info('TLE catalog warmed', { count: names.length });
+    logger.info('TLE catalog and TLE feed warmed', { catalogCount: names.length });
   } catch (err) {
     logger.warn('Failed to prefetch TLE catalog', { err });
   }
@@ -111,12 +111,24 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
   try {
     const entries = await getTleEntries();
     const catalogNames = await getCatalogNames().catch(() => entries.map(entry => entry.name));
-    const matches = findMatches(entries, rawQuery);
-    const queryUpper = rawQuery.toUpperCase();
+
+    // Apply the same cleanup as catalog names so the query is consistent
+    // regardless of whether the user typed manually or selected from autocomplete.
+    const cleanQuery = rawQuery.replace(/\s*\[.*?\]\s*$/, '').replace(/_+$/, '').trim();
+    const matches = findMatches(entries, cleanQuery);
+    const queryUpper = cleanQuery.toUpperCase();
 
     if (matches.length === 0) {
-      const suggestions = rankNames(catalogNames, rawQuery, 5);
-      logger.info('TLE not found', { query: queryUpper, user: interaction.user.tag });
+      // Suggest alternatives from the catalog, excluding names that normalize to
+      // the same string as the query (which would produce a "did you mean [same name]"
+      // message — that means the satellite is tracked but has no current TLE data).
+      const normalizedQuery = normalizeName(cleanQuery);
+      const suggestions = rankNames(catalogNames, cleanQuery, 6)
+        .filter(name => normalizeName(name) !== normalizedQuery)
+        .slice(0, 5);
+
+      const inCatalog = catalogNames.some(name => normalizeName(name) === normalizedQuery);
+      logger.info('TLE not found', { query: queryUpper, inCatalog, user: interaction.user.tag });
 
       await interaction.editReply({
         embeds: [
@@ -124,11 +136,14 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
             .setColor(Colors.Orange)
             .setTitle('🛰️  Satellite Not Found')
             .setDescription(
-              `No TLE data found for **${queryUpper}**.\n\n` +
-              (suggestions.length > 0
-                ? `Did you mean: ${suggestions.map(name => `\`${name}\``).join(', ')}?\n\n`
-                : '') +
-              'Use `/tle list` to browse available satellites.',
+              inCatalog
+                ? `**${queryUpper}** is tracked by AMSAT but has no current TLE data in the feed.\n\n` +
+                  'Try again later, or use `/tle list` to browse satellites with available data.'
+                : `No TLE data found for **${queryUpper}**.\n\n` +
+                  (suggestions.length > 0
+                    ? `Did you mean: ${suggestions.map(name => `\`${name}\``).join(', ')}?\n\n`
+                    : '') +
+                  'Use `/tle list` to browse available satellites.',
             )
             .setFooter({ text: 'Source: AMSAT status API catalog + AMSAT TLE feed' }),
         ],
@@ -234,15 +249,11 @@ async function getCatalogNames(forceRefresh = false): Promise<string[]> {
 
   if (catalogFetchPromise) return catalogFetchPromise;
 
-  catalogFetchPromise = Promise.all([fetchCatalogNames(), getTleEntries(forceRefresh)])
-    .then(([rawNames, tleEntries]) => {
-      // Only keep catalog names that resolve to an actual TLE entry. This prevents
-      // list/autocomplete from showing satellites with no current TLE data, which
-      // would always produce a "not found" error when selected.
-      const validNames = rawNames.filter(name => findMatches(tleEntries, name).length > 0);
-      catalogNamesCache = validNames;
+  catalogFetchPromise = fetchCatalogNames()
+    .then(names => {
+      catalogNamesCache = names;
       catalogLastFetchedAt = Date.now();
-      return validNames;
+      return names;
     })
     .finally(() => {
       catalogFetchPromise = null;
