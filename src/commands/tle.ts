@@ -13,11 +13,15 @@ import { config } from '../config';
 // AMSAT "NASA bare" TLE feed — 3-line format: name / line1 / line2
 const TLE_URL = 'https://www.amsat.org/tle/current/nasabare.txt';
 const MAX_AUTOCOMPLETE_CHOICES = 25; // hard Discord API limit
-const CATALOG_CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 let catalogNamesCache: string[] = [];
 let catalogLastFetchedAt = 0;
 let catalogFetchPromise: Promise<string[]> | null = null;
+
+let tleEntriesCache: TleEntry[] = [];
+let tleLastFetchedAt = 0;
+let tleFetchPromise: Promise<TleEntry[]> | null = null;
 
 interface TleEntry {
   name: string;
@@ -92,7 +96,7 @@ export async function autocomplete(interaction: AutocompleteInteraction): Promis
 
 export async function prefetchTleCatalog(): Promise<void> {
   try {
-    const names = await getCatalogNames(true);
+    const [names] = await Promise.all([getCatalogNames(true), getTleEntries(true)]);
     logger.info('TLE catalog warmed', { count: names.length });
   } catch (err) {
     logger.warn('Failed to prefetch TLE catalog', { err });
@@ -105,7 +109,7 @@ async function handleLookup(interaction: ChatInputCommandInteraction): Promise<v
   const rawQuery = interaction.options.getString('name', true).trim();
 
   try {
-    const entries = await fetchTleEntries();
+    const entries = await getTleEntries();
     const catalogNames = await getCatalogNames().catch(() => entries.map(entry => entry.name));
     const matches = findMatches(entries, rawQuery);
     const queryUpper = rawQuery.toUpperCase();
@@ -224,29 +228,48 @@ async function handleList(interaction: ChatInputCommandInteraction): Promise<voi
 
 async function getCatalogNames(forceRefresh = false): Promise<string[]> {
   const now = Date.now();
-  if (
-    !forceRefresh &&
-    catalogNamesCache.length > 0 &&
-    now - catalogLastFetchedAt < CATALOG_CACHE_TTL_MS
-  ) {
+  if (!forceRefresh && catalogNamesCache.length > 0 && now - catalogLastFetchedAt < CACHE_TTL_MS) {
     return catalogNamesCache;
   }
 
-  if (catalogFetchPromise) {
-    return catalogFetchPromise;
-  }
+  if (catalogFetchPromise) return catalogFetchPromise;
 
-  catalogFetchPromise = fetchCatalogNames()
-    .then(names => {
-      catalogNamesCache = names;
+  catalogFetchPromise = Promise.all([fetchCatalogNames(), getTleEntries(forceRefresh)])
+    .then(([rawNames, tleEntries]) => {
+      // Only keep catalog names that resolve to an actual TLE entry. This prevents
+      // list/autocomplete from showing satellites with no current TLE data, which
+      // would always produce a "not found" error when selected.
+      const validNames = rawNames.filter(name => findMatches(tleEntries, name).length > 0);
+      catalogNamesCache = validNames;
       catalogLastFetchedAt = Date.now();
-      return names;
+      return validNames;
     })
     .finally(() => {
       catalogFetchPromise = null;
     });
 
   return catalogFetchPromise;
+}
+
+async function getTleEntries(forceRefresh = false): Promise<TleEntry[]> {
+  const now = Date.now();
+  if (!forceRefresh && tleEntriesCache.length > 0 && now - tleLastFetchedAt < CACHE_TTL_MS) {
+    return tleEntriesCache;
+  }
+
+  if (tleFetchPromise) return tleFetchPromise;
+
+  tleFetchPromise = fetchTleEntries()
+    .then(entries => {
+      tleEntriesCache = entries;
+      tleLastFetchedAt = Date.now();
+      return entries;
+    })
+    .finally(() => {
+      tleFetchPromise = null;
+    });
+
+  return tleFetchPromise;
 }
 
 async function fetchCatalogNames(): Promise<string[]> {
